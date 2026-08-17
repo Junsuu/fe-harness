@@ -803,15 +803,15 @@ cmp /tmp/from-payload <대상 파일>
 
 - [ ] 현업 저장소에서 **실사용** — 안 쓰는 도구는 만든 게 아니다.
       기간이 아니라 **11장에 조정 기록이 쌓이고 새 마찰이 더 안 나오는 것**이 기준
-- [ ] `claude plugin validate ./fe-harness --strict` 통과
-- [ ] `claude plugin list`의 `Status`가 실패가 아님 — validate 통과와 별개다(7장)
-- [ ] 기본 임계값이 실측 근거를 가질 것 — `tools/measure-thresholds.sh` 결과를 4장에 기록
+- [x] `claude plugin validate ./fe-harness --strict` 통과
+- [x] `claude plugin list`의 `Status`가 실패가 아님 — validate 통과와 별개다(7장)
+- [x] 기본 임계값이 실측 근거를 가질 것 — `tools/measure-thresholds.sh` 결과를 4장에 기록
 - [ ] **서로 다른 저장소 2개**에서 동작 확인 (범용성 주장의 근거)
 - [ ] **다른 플러그인이 하나도 없는 환경에서 단독 동작** 확인 — 의존성 없음의 근거
-- [ ] 모든 훅 스크립트 `chmod +x`
-- [ ] 정책 훅 첫 실행에 `Failed with non-blocking status code` 없음
-- [ ] README에 **「설계 판단과 포기한 것」** + **「알려진 한계」** 존재
-- [ ] LICENSE (MIT)
+- [x] 모든 훅 스크립트 `chmod +x`
+- [x] 정책 훅 첫 실행에 `Failed with non-blocking status code` 없음
+- [x] README에 **「설계 판단과 포기한 것」** + **「알려진 한계」** 존재
+- [x] LICENSE (MIT)
 - [ ] ⚠️ 현업 저장소의 로그 · 저널은 절대 커밋하지 않는다
 
 ### README에 반드시 들어갈 「설계 판단과 포기한 것」 후보
