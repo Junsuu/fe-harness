@@ -1,8 +1,9 @@
 # fe-harness — 설계 문서
 
 > Claude Code 플러그인. AI 코딩 세션에서 **코드가 써지는 시점에** 품질을 통제한다.
-> 저자: tinyhex · 문서 작성일 2026-08-17 · 기준 Claude Code v2.1.231
+> 저자: tinyhex · 문서 작성일 2026-08-17 · 최종 갱신 2026-08-17 · 기준 Claude Code v2.1.231
 > 이 문서는 구현 브리프이자 의사결정 기록이다. 구현이 바뀌면 여기도 갱신한다.
+> 절 참조는 `9장`처럼 장 번호로 쓴다.
 
 ---
 
@@ -90,7 +91,13 @@ Claude Code로 몇 주간 같은 저장소를 작업하면 코드가 난잡해�
 
 레이어 2가 성립하는 이유: `PreToolUse` 훅의 `tool_input`에 **쓰려는 내용 전문**이 온다. `Write`면 `.tool_input.content`, `Edit`면 `.tool_input.new_string`. 여기서 exit 2로 거부하면 파일에 안 들어가고 Claude가 다시 쓴다.
 
-> ⚠️ **미검증**: `content`가 잘리지 않고 전문으로 오는지는 아직 실측 안 됨. §9 참조.
+> ⚠️ **미검증**: `content`가 잘리지 않고 전문으로 오는지는 아직 실측 안 됨. 9장 참조.
+
+> ⚠️ **`Edit`은 파일 전문이 오지 않는다.** `new_string`은 교체 조각이다.
+> 분량 게이트(P0-2)는 "이번 턴에 얼마나 붙이는가"를 재므로 조각 기준이 맞다.
+> 그러나 컴포넌트 카운트(P0-3)는 **파일 전체 기준**이어야 한다 — 두 번째
+> 컴포넌트를 `Edit`으로 끼워 넣으면 `new_string`엔 1개만 보이고 파일엔 2개가 된다.
+> 이건 위 미검증 항목의 답과 무관하게 발생한다. 대응은 5장 P0-3 참조.
 
 ---
 
@@ -104,6 +111,11 @@ Claude Code로 몇 주간 같은 저장소를 작업하면 코드가 난잡해�
 | 2 | **분량 게이트** | `PreToolUse` | ① 범위 폭발 | 임계값 초과 시 **반려** |
 | 3 | **인라인 컴포넌트** | `PreToolUse` | ⑤ | 한 파일 컴포넌트 2개 이상 시 **반려** |
 
+**P0-3은 P0-2와 같은 스크립트에 넣지 않는다.** 4장의 경고대로 판정 단위가 다르다 —
+P0-2는 조각(`new_string`) 기준, P0-3은 파일 전체 기준이다. `Edit`에서 P0-3을 하려면
+기존 파일을 읽어 조각을 적용한 결과를 세거나, `PostToolUse` 경고로 내려가야 한다.
+어느 쪽으로 갈지는 P0-2를 붙여보고 결정한다 (10장).
+
 **포맷이 P0인 이유** — Claude가 `Write`로 만든 파일은 **에디터의 저장 이벤트를 안 거친다.** format-on-save가 걸려 있어도 적용 안 된다. 포맷 안 된 코드가 섞인 diff는 사람이 검토할 수 없고, 그게 이 프로젝트의 목표를 정면으로 깬다.
 
 **분량 게이트의 임계값은 비대칭이어야 한다:**
@@ -113,7 +125,7 @@ Write (새 파일)   : 넉넉하게 (제안 250줄)   ← 새 파일 만들기�
 Edit  (기존 수정) : 빡빡하게 (제안 150줄)   ← 기존 파일에 붙이기를 "비싸게"
 ```
 
-이게 §1의 처방을 그대로 구현한 것이다. 1주 써보고 조정한다.
+이게 1장의 처방을 그대로 구현한 것이다. 1주 써보고 조정한다.
 
 ### P1 — 2주차
 
@@ -180,6 +192,14 @@ fh_flag_props() {
 | 양성 9종 — `function Foo()` / `export function` / `export default function` / `const F = () =>` / `React.FC` / `memo(...)` / `forwardRef<T>(...)` / `props => ` / `async () =>` | **미탐 0** |
 | flag props — `onToggle: (next: boolean) => void`, `render?: (open: boolean) => ReactNode` | **콜백 제외 정확** |
 
+**실측 환경** (2026-08-17, macOS 24.6.0 arm64): bash 3.2.57 · BSD grep · awk 20200816 · jq 1.7.1.
+bash 3.2 라서 연관배열(`declare -A`)과 `${var^^}` 같은 bash 4 문법은 쓸 수 없다. 훅 스크립트 전부 여기에 맞춘다.
+
+**발견한 한계 — flag props 는 멤버 구분자가 `;` 일 때만 잡는다.**
+`type BannerProps = { a: boolean, b: boolean }` 처럼 콤마로 구분하면 미탐이다.
+Prettier 기본이 `;` 라 실사용 영향은 작고, P1-5는 어차피 경고 전용이라
+**미탐은 오탐보다 싼 실패**다. 고치지 않고 README 「알려진 한계」로 넘긴다.
+
 **개발 중 잡은 버그 2개** (블로그 소재):
 - `const [A-Z]` 만으로 세면 `styled.div`, `MAX_ITEMS`, `new ApiClient()` 가 전부 컴포넌트로 잡힌다 → 정상 파일이 1개가 아니라 5개로 나왔다. **우변이 함수처럼 생겼을 때만** 세도록 수정.
 - `forwardRef\(` 로 쓰면 제네릭이 낀 `forwardRef<HTMLDivElement>(` 를 놓친다 → `forwardRef\b`.
@@ -188,7 +208,7 @@ fh_flag_props() {
 
 `fixtures/` 8개 파일 + `test.sh`. **정규식을 고칠 때마다 돌린다.** 새 오탐/미탐을 발견하면 그 코드를 fixtures에 추가하고 기대값을 박는다. 이게 나중에 만들 eval 하니스의 축소판이다.
 
-현재 상태: `pass=7 fail=0`
+현재 상태: `pass=8 fail=0` (fixture 8개 · 어서션 8개 — 컴포넌트 카운트 6 + flag props 2)
 
 ---
 
@@ -202,7 +222,7 @@ fe-harness/
 ├── hooks/
 │   ├── hooks.json
 │   └── scripts/
-│       ├── lib-detect.sh    ← §6, 검증 완료
+│       ├── lib-detect.sh    ← 6장, 검증 완료
 │       ├── format.sh        ← P0-1
 │       ├── guard-write.sh   ← P0-2, P0-3 (PreToolUse)
 │       └── warn-write.sh    ← P1-5, P1-6 (PostToolUse)
@@ -307,40 +327,59 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/a.tsx","content":"x"}
 
 ---
 
-## 9. 미검증 — 착수 전에 확인할 것
+## 9. 미검증 항목
 
-**① `PreToolUse`의 `tool_input.content`가 전문으로 오는가** ← P0-2, P0-3 전체가 여기 걸려 있다
+> **의사결정 (2026-08-17): 검증을 별도 단계로 두지 않는다.**
+> 초안은 Day 0에 버릴 훅을 settings에 심어 payload를 뜨는 계획이었다. 그런데 그건
+> `guard-write.sh` 가 하는 일과 똑같다. **버릴 훅 대신 진짜 훅의 첫 버전을
+> *관찰 모드*(payload 로깅 후 `exit 0`)로 만들면 검증이 부산물로 나온다.**
+> 플러그인 설치 때 어차피 세션 재시작이 필요하니 그 한 번에 합친다.
+>
+> 틀렸을 때 손해가 작다는 것이 근거다. content 가 잘려 와도 버려지는 건
+> `guard-write.sh` 의 payload 파싱부뿐이고, `lib-detect.sh` · 설정 3단 폴백 ·
+> 임계값 로직 · stderr 문구는 전부 살아남는다. 값싼 베팅이라 먼저 걸어본다.
 
-`~/.claude/settings.json`에 임시로:
-```json
-{ "hooks": { "PreToolUse": [ { "matcher": "Write|Edit",
-  "hooks": [{ "type": "command", "command": "cat > /tmp/payload-$(date +%s).json" }] } ] } }
-```
-Claude에게 파일 하나 만들게 하고 하나 수정하게 한 뒤:
+**① `PreToolUse`의 `tool_input.content`가 전문으로 오는가** — 미검증. P0-2가 여기 걸려 있다
+
+`guard-write.sh` 관찰 모드로 확인한다. `Write`의 `content`, `Edit`의 `new_string` 둘 다 본다.
+
 ```bash
-jq '.tool_input | keys' /tmp/payload-*.json
-jq -r '.tool_input.content' /tmp/payload-*.json | wc -l
+jq '.tool_input | keys' <떠낸 payload>
+jq -r '.tool_input.content // .tool_input.new_string' <떠낸 payload> | wc -l
 ```
+
 잘려서 오면 `PostToolUse`에서 파일을 읽는 방식으로 바꿔야 하고, **그러면 반려가 아니라 경고만 가능해져 설계가 크게 달라진다.**
 
-**② macOS의 BSD `grep`/`awk`에서 탐지 로직이 동일하게 동작하는가** — `./test.sh` 가 7/7이면 OK
+**② macOS의 BSD `grep`/`awk`에서 탐지 로직이 동일하게 동작하는가** — ✅ **검증 완료** (2026-08-17)
+
+`./test.sh` → `pass=8 fail=0`. 환경과 발견한 한계는 6장에 기록.
 
 **③ 클래스 컴포넌트** (`class Foo extends Component`) — 현재 미지원. 쓰지 않으면 무시
+
+**④ `Edit`의 `new_string`은 파일 전문이 아니다** — ✅ **확정된 사실.** 대응은 4장·5장 참조.
+①의 답과 무관하게 P0-3의 판정 단위를 바꾼다.
 
 ---
 
 ## 10. 작업 순서
 
-| Day | 작업 | 완료 판정 |
-|---|---|---|
-| 0 | §9 미검증 2개 확인 | payload에 `content` 존재, `test.sh` 7/7 |
-| 1 | 폴더 골격 + `plugin.json` + **포맷 훅** | `/hooks`에 뜨고 실제 편집에서 포맷됨 |
-| 2 | **분량 게이트** | 일부러 큰 파일 쓰게 해서 반려 확인 |
-| 3 | **인라인 컴포넌트 반려** | 컴포넌트 2개짜리 파일 반려 확인 |
-| 4 | 조정 (임계값·예외 경로) | `.fe-harness.json` 확정 |
-| 5 | **하루 그냥 써보기** | **짜증난 순간 전부 기록** ← 진짜 산출물 |
+**만들면서 하나씩 검증한다.** 9장의 의사결정에 따라 별도 검증 단계는 없다.
 
-**Day 5가 핵심이다.** 마찰 기록이 v0.2 스펙이자 블로그 글 재료다. "만들어봤다" 글은 널렸고 "쓰다가 이게 불편해서 이렇게 바꿨다" 글은 드물다.
+| # | 작업 | 완료 판정 |
+|---|---|---|
+| 0 | ~~미검증 2개 확인~~ | 폐기 — 각 훅에 흡수 (9장) |
+| 1 | **탐지 로직 + 회귀 테스트** | ✅ `test.sh` → `pass=8 fail=0` |
+| 2 | 폴더 골격 + `plugin.json` + `marketplace.json` + **포맷 훅**(P0-1) | `/hooks`에 뜨고 실제 편집에서 포맷됨 |
+| 3 | 설치 + 세션 재시작 | 첫 실행에 `Failed with non-blocking status code` 없음 |
+| 4 | `guard-write.sh` **관찰 모드** | payload 로그에 `content`/`new_string` 전문 존재 → 9장 ① 판정 |
+| 5 | **분량 게이트**(P0-2) 반려 로직 부착 | 일부러 큰 파일 쓰게 해서 반려 확인 |
+| 6 | **인라인 컴포넌트**(P0-3) | 판정 단위 결정 후 (4장) 컴포넌트 2개짜리 파일 반려 확인 |
+| 7 | 조정 (임계값·예외 경로) | `.fe-harness.json` 확정 |
+| 8 | **하루 그냥 써보기** | **짜증난 순간 전부 기록** ← 진짜 산출물 |
+
+2번이 P0-1(포맷)부터인 이유: `PostToolUse` 라서 9장 ①의 전제와 **무관하다.** 답을 기다릴 필요가 없는 일을 먼저 한다.
+
+**마지막 8번이 핵심이다.** 마찰 기록이 v0.2 스펙이자 블로그 글 재료다. "만들어봤다" 글은 널렸고 "쓰다가 이게 불편해서 이렇게 바꿨다" 글은 드물다.
 
 **스킬과 서브에이전트는 훅이 다 돌아간 뒤에 시작한다.** 훅은 디버깅이 결정적이라 만들면 바로 효과가 보이지만, 스킬은 프롬프트 튜닝이라 끝이 없어서 먼저 손대면 거기서 못 빠져나온다.
 
@@ -367,6 +406,8 @@ jq -r '.tool_input.content' /tmp/payload-*.json | wc -l
 **「알려진 한계」 후보**:
 - Tailwind 기본 팔레트 이탈은 못 잡는다 (hex/arbitrary value만)
 - 클래스 컴포넌트 미지원
+- flag props 는 타입 멤버 구분자가 `;` 일 때만 잡는다 (콤마 구분은 미탐, 6장)
+- `Edit`은 파일 전문이 오지 않아 컴포넌트 카운트의 판정 단위가 `Write`와 다르다 (4장)
 - `jq` 의존. 없으면 전체 no-op
 - Windows는 WSL 기준으로만 확인
 - eval 하니스 없음 (v0.2 예정)
