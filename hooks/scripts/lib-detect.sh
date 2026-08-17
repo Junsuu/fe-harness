@@ -20,6 +20,24 @@ fh_count_components() {
   echo $(( decl + assign ))
 }
 
+# 컴포넌트 이름 목록. fh_count_components 와 같은 정규식을 쓴다 —
+# 둘이 어긋나면 test.sh 의 「개수-목록 일치」가 잡는다.
+# 반려 메시지에 이름을 넣으려고 만들었다. "3개 있습니다" 보다
+# "OrderList, EmptyState, Row" 가 훨씬 쓸모 있다.
+fh_list_components() {
+  local body
+  body=$(cat)
+
+  printf '%s\n' "$body" \
+    | grep -E '^[[:space:]]*(export[[:space:]]+)?(default[[:space:]]+)?function[[:space:]]+[A-Z][A-Za-z0-9_]*[[:space:]]*[(<]' \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?(default[[:space:]]+)?function[[:space:]]+([A-Z][A-Za-z0-9_]*).*/\3/'
+
+  printf '%s\n' "$body" \
+    | grep -E '^[[:space:]]*(export[[:space:]]+)?const[[:space:]]+[A-Z][A-Za-z0-9_]*[[:space:]]*(:[^=]*)?=[[:space:]]*(memo\b|forwardRef\b|function\b|\(|async[[:space:]]*\(|[a-z_$][A-Za-z0-9_$]*[[:space:]]*=>)' \
+    | grep -vE '=[[:space:]]*styled' \
+    | sed -E 's/^[[:space:]]*(export[[:space:]]+)?const[[:space:]]+([A-Z][A-Za-z0-9_]*).*/\2/'
+}
+
 # Props 타입 내 boolean prop 이 THRESH 이상인 것 보고
 fh_flag_props() {
   awk -v THRESH="${1:-2}" '

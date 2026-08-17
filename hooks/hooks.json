@@ -10,6 +10,13 @@
             "args": [],
             "timeout": 30,
             "statusMessage": "작성 규모 확인"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-components.sh",
+            "args": [],
+            "timeout": 30,
+            "statusMessage": "컴포넌트 개수 확인"
           }
         ]
       }
@@ -24,6 +31,13 @@
             "args": [],
             "timeout": 60,
             "statusMessage": "포맷"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/warn-components.sh",
+            "args": [],
+            "timeout": 30,
+            "statusMessage": "구조 신호 확인"
           }
         ]
       }

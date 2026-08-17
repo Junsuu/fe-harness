@@ -201,5 +201,107 @@ else
   printf 'FAIL  %-32s 기본=%s observe=%s (기대 0 / 1)\n' '관찰모드-플래그' "$off" "$on"
 fi
 
+# --- 인라인 컴포넌트 (P0-3) ----------------------------------------------
+# Write 는 PreToolUse 반려, Edit 는 PostToolUse 경고.
+
+# 개수 세는 함수와 이름 뽑는 함수가 어긋나면 반려 메시지가 거짓말을 한다.
+for f in "$ROOT"/fixtures/*.tsx; do
+  c=$(fh_count_components < "$f")
+  l=$(fh_list_components < "$f" | grep -c . || true)
+  if [ "$c" = "$l" ]; then
+    pass=$((pass + 1))
+    printf 'ok    %-32s 개수=%s 목록=%s\n' "개수-목록일치 $(basename "$f")" "$c" "$l"
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %-32s 개수=%s 목록=%s\n' "개수-목록일치 $(basename "$f")" "$c" "$l"
+  fi
+done
+
+COMP_ERR=$TMP/comp.stderr
+
+run_guard_components() {
+  local target=$1 src=$2 config=$3
+  if [ -n "$config" ]; then
+    printf '%s\n' "$config" > "$TMP/.fe-harness.json"
+  else
+    rm -f "$TMP/.fe-harness.json"
+  fi
+  printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s","content":%s}}' \
+    "$TMP" "$target" "$(jq -Rs . < "$src")" \
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/guard-components.sh" 2> "$COMP_ERR"
+  comp_exit=$?
+}
+
+expect_components() {
+  local label=$1 want=$2 fixture=$3 config=${4:-}
+  run_guard_components "$TMP/a.tsx" "$ROOT/fixtures/$fixture" "$config"
+  if [ "$comp_exit" -eq "$want" ]; then
+    pass=$((pass + 1))
+    printf 'ok    %-32s exit=%s\n' "$label" "$comp_exit"
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %-32s exit=%s (기대 %s)\n' "$label" "$comp_exit" "$want"
+  fi
+}
+
+expect_components 'Write-1개-통과'      0 mixed-single-component.tsx
+expect_components 'Write-2개-반려'      2 inline-two-components.tsx
+expect_components 'Write-0개-통과'      0 negative-non-components.tsx
+expect_components '허용2로완화-통과'    0 inline-two-components.tsx '{"maxComponentsPerFile":2}'
+expect_components 'disable.guard-통과'  0 inline-two-components.tsx '{"disable":{"guard":true}}'
+expect_components 'exclude-통과'        0 inline-two-components.tsx '{"exclude":["**/a.tsx"]}'
+
+# 반려 메시지에 컴포넌트 이름이 실제로 들어가는가
+run_guard_components "$TMP/a.tsx" "$ROOT/fixtures/inline-two-components.tsx" ''
+if grep -q 'EmptyState' "$COMP_ERR" && grep -q 'OrderList' "$COMP_ERR"; then
+  pass=$((pass + 1))
+  printf 'ok    %-32s 이름 포함\n' 'stderr-컴포넌트이름'
+else
+  fail=$((fail + 1))
+  printf 'FAIL  %-32s\n' 'stderr-컴포넌트이름'
+  sed 's/^/      /' "$COMP_ERR"
+fi
+
+# Edit 은 PreToolUse 에서 판정하지 않는다 — 조각만 오니까
+printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/a.tsx","new_string":"x"}}' \
+  "$TMP" "$TMP" | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/guard-components.sh" 2>/dev/null
+if [ $? -eq 0 ]; then
+  pass=$((pass + 1)); printf 'ok    %-32s Pre 에서 판정 안 함\n' 'Edit-guard-통과'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s\n' 'Edit-guard-통과'
+fi
+
+# PostToolUse 경고 — 완성된 파일을 읽는다
+run_warn() {
+  local fixture=$1 config=$2
+  cp "$ROOT/fixtures/$fixture" "$TMP/a.tsx"
+  if [ -n "$config" ]; then
+    printf '%s\n' "$config" > "$TMP/.fe-harness.json"
+  else
+    rm -f "$TMP/.fe-harness.json"
+  fi
+  printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/a.tsx","new_string":"x"}}' \
+    "$TMP" "$TMP" \
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/warn-components.sh" 2> "$COMP_ERR"
+  warn_exit=$?
+}
+
+expect_warn() {
+  local label=$1 want=$2 fixture=$3 config=${4:-}
+  run_warn "$fixture" "$config"
+  if [ "$warn_exit" -eq "$want" ]; then
+    pass=$((pass + 1))
+    printf 'ok    %-32s exit=%s\n' "$label" "$warn_exit"
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %-32s exit=%s (기대 %s)\n' "$label" "$warn_exit" "$want"
+  fi
+}
+
+# exit 2 = 차단이 아니라 stderr 를 Claude 에게 보여주기
+expect_warn 'Edit-2개-경고'        2 inline-two-components.tsx
+expect_warn 'Edit-1개-무동작'      0 mixed-single-component.tsx
+expect_warn 'disable.warn-무동작'  0 inline-two-components.tsx '{"disable":{"warn":true}}'
+
 printf '\npass=%d fail=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

@@ -103,13 +103,27 @@ Claude Code로 몇 주간 같은 저장소를 작업하면 코드가 난잡해�
   편집된 **파일 1개만** 포맷
 - **2 · 분량 게이트** — `PreToolUse` · 증상 ① 범위 폭발
   임계값 초과 시 **반려**
-- **3 · 인라인 컴포넌트** — `PreToolUse` · 증상 ⑤
-  한 파일에 컴포넌트가 2개 이상이면 **반려**
+- **3 · 인라인 컴포넌트** — 증상 ⑤
+  `Write` → `PreToolUse` **반려** / `Edit` → `PostToolUse` **경고**
 
-**P0-3은 P0-2와 같은 스크립트에 넣지 않는다.** 3장의 경고대로 판정 단위가 다르다.
-P0-2는 조각(`new_string`) 기준, P0-3은 파일 전체 기준이다. `Edit`에서 P0-3을
-하려면 기존 파일을 읽어 조각을 적용한 결과를 세거나, `PostToolUse` 경고로
-내려가야 한다. 어느 쪽으로 갈지는 P0-2를 붙여보고 결정한다 (9장).
+**P0-3은 도구별로 층이 다르다.** 3장의 경고대로 판정 단위가 다르기 때문이다.
+
+| | 스크립트 | 이벤트 | 셀 수 있는 것 | 결과 |
+| --- | --- | --- | --- | --- |
+| `Write` | `guard-components.sh` | `PreToolUse` | `content` = 파일 전문 | **반려** |
+| `Edit` | `warn-components.sh` | `PostToolUse` | 완성된 파일을 읽음 | **경고** |
+
+**왜 `Edit`은 경고인가** — `PreToolUse`에서 `Edit`이 주는 건 조각뿐이라 파일에
+컴포넌트가 몇 개가 될지 알 수 없다. 정확히 세려면 파일이 써진 뒤여야 하고,
+그때는 이미 되돌릴 수 없다. **정확하지만 늦거나, 이르지만 부정확하거나** —
+후자를 택했다.
+
+**왜 그래도 괜찮은가** — 증상 ⑤는 대부분 새 파일을 쓸 때 생긴다. 기존 파일에
+두 번째 컴포넌트를 `Edit`으로 끼워 넣는 건 상대적으로 드물다. 흔한 경로를 막고
+드문 경로는 경고로 두고 실사용 기록을 본다(11장).
+
+**임계값 의미** — `maxComponentsPerFile`은 **허용 최대 개수**이고 기본값은 **1**이다.
+설정 예시가 한때 2로 적혀 있었는데 "2개 이상이면 반려"와 어긋났다. 1로 통일한다.
 
 **포맷이 P0인 이유** — Claude가 `Write`로 만든 파일은 **에디터의 저장 이벤트를
 안 거친다.** format-on-save가 걸려 있어도 적용되지 않는다. 포맷 안 된 코드가 섞인
@@ -367,8 +381,10 @@ fe-harness/
 │   └── scripts/
 │       ├── lib-detect.sh    ← 5장, 검증 완료
 │       ├── lib-config.sh    ← 설정 3단 폴백 · exclude · 확장자
-│       ├── format.sh        ← P0-1 ✅
-│       └── guard-size.sh    ← P0-2 ✅ 반려 동작
+│       ├── format.sh            ← P0-1 ✅
+│       ├── guard-size.sh        ← P0-2 ✅ 반려
+│       ├── guard-components.sh  ← P0-3 ✅ 반려 (Write)
+│       └── warn-components.sh   ← P0-3 ✅ 경고 (Edit)
 ├── fixtures/                ← 탐지 로직 테스트 데이터 8개
 ├── test.sh
 ├── .fe-harness.example.json
@@ -390,7 +406,8 @@ fe-harness/
 │       ├── lib-config.sh          ← 라이브러리 (훅 아님)
 │       ├── format.sh              P0-1  PostToolUse
 │       ├── guard-size.sh          P0-2  PreToolUse   ★ 반려
-│       ├── guard-components.sh    P0-3  판정 단위 미정 ★ 반려
+│       ├── guard-components.sh    P0-3  PreToolUse   ★ 반려 (Write)
+│       ├── warn-components.sh     P0-3  PostToolUse    경고 (Edit)
 │       ├── gate-stop.sh           P1-4  Stop         ★ 반려
 │       ├── lint-feedback.sh       P1-6  PostToolUse    경고
 │       ├── reinject.sh            P1-7  SessionStart
@@ -412,7 +429,7 @@ fe-harness/
 └── README.md
 ```
 
-**최대 규모: 훅 스크립트 7개 + 라이브러리 2개 + 스킬 3개 + 서브에이전트 1개.**
+**최대 규모: 훅 스크립트 8개 + 라이브러리 2개 + 스킬 3개 + 서브에이전트 1개.**
 그중 스킬 2개는 조건부라 안 만들 수 있다. 반려하는 훅은 3개뿐이고 나머지는
 경고이거나 아무것도 막지 않는다.
 
@@ -669,8 +686,8 @@ cmp /tmp/from-payload <대상 파일>
 
 ### ④ `Edit`의 `new_string`은 파일 전문이 아니다
 
-✅ **확정된 사실.** 대응은 3장·4장 참조.
-①의 답과 무관하게 P0-3의 판정 단위를 바꾼다.
+✅ **확정된 사실.** 실측으로도 확인했다(①의 표).
+대응은 4장 P0-3 — `Write`는 `PreToolUse` 반려, `Edit`는 `PostToolUse` 경고로 갈랐다.
 
 ---
 
@@ -687,8 +704,8 @@ cmp /tmp/from-payload <대상 파일>
 - ✅ **4** · `guard-size.sh` **관찰 모드** → 8장 ① 판정 완료. **전문으로 온다**
 - ✅ **5** · **분량 게이트**(P0-2) 반려 로직 부착
   실사용 확인 완료 — 255줄 `.tsx` `Write` 가 실제로 취소됐다
-- **6** · **인라인 컴포넌트**(P0-3)
-  판정 단위 결정 후(3장) 컴포넌트 2개짜리 파일 반려 확인
+- ✅ **6** · **인라인 컴포넌트**(P0-3)
+  `Write` 반려 / `Edit` 경고로 분리. 실사용 확인은 아직
 - **7** · 조정 (임계값 · 예외 경로) — `.fe-harness.json` 확정
 - **8** · **그냥 쓰기** — 짜증난 순간 전부 11장에 기록 ← 진짜 산출물
 
@@ -741,6 +758,10 @@ cmp /tmp/from-payload <대상 파일>
 - Tailwind 기본 팔레트 이탈은 못 잡는다 (hex / arbitrary value만)
 - 클래스 컴포넌트 미지원
 - `Edit`은 파일 전문이 오지 않아 컴포넌트 카운트의 판정 단위가 `Write`와 다르다 (3장)
+- 같은 컴포넌트를 감싸기만 한 경우도 2개로 센다 — `const Base = forwardRef(...)`
+  뒤에 `export const X = memo(Base)`. 오탐이고, 반려 훅이라 비용이 크다.
+  실사용에서 얼마나 걸리는지 11장에 기록하고 판단한다
+- `Edit`로 두 번째 컴포넌트를 끼워 넣는 경로는 반려가 아니라 경고다 (4장 P0-3)
 - `jq` 의존. 없으면 전체 no-op
 - Windows는 WSL 기준으로만 확인
 - eval 하니스 없음 (v0.2 예정)

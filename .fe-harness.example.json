@@ -3,8 +3,9 @@
 
   "maxNewFileLines": 250,
   "maxEditLines": 150,
-  "maxComponentsPerFile": 2,
-  "maxBooleanProps": 2,
+
+  "__maxComponentsPerFile": "허용 최대 개수다. 기본 1 — 한 파일에 컴포넌트가 2개 이상이면 반려한다. 늘리려면 2 이상으로.",
+  "maxComponentsPerFile": 1,
 
   "__extensions": "분량 게이트 대상 확장자. 생략하면 아래가 기본값이다. 문서·설정 파일은 분량으로 막지 않는다.",
   "extensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "vue", "svelte"],
