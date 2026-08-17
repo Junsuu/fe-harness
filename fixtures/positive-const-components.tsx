@@ -10,6 +10,9 @@ const Chip = () => <span />;
 
 const Panel: FC<PanelProps> = ({ children }) => <section>{children}</section>;
 
+// 괄호 없는 단일 인자 분기를 검증하는 줄이다. Prettier 는 arrowParens 기본값이
+// "always" 라 이걸 `(props) =>` 로 바꿔버리고, 그러면 이 분기가 테스트되지 않는다.
+// prettier-ignore
 const Row = props => <div>{props.label}</div>;
 
 const Loader = async () => {
