@@ -562,7 +562,9 @@ P1-5는 폐기됐다(4장).
 `UserPromptExpansion`, `SessionStart`. 그래서 컴팩션 재주입이 `SessionStart`다.
 
 **`PostToolUse`의 exit 2**는 차단이 아니라 **stderr를 Claude에게 보여주기**다.
-경고 훅은 이걸 쓴다.
+경고 훅은 이걸 쓴다. 다만 화면에는 `PostToolUse:Edit hook blocking error`
+라고 뜬다 — **"blocking"이라고 적혀 있어도 실제로 막지 않는다.**
+파일은 이미 써져 있다. 실측으로 확인했다(2026-08-18).
 
 **`Stop` 훅**은 `stop_hook_active` 파싱이 필수다(무한 루프).
 **연속 8회 차단하면 무시**된다.
@@ -705,7 +707,7 @@ cmp /tmp/from-payload <대상 파일>
 - ✅ **5** · **분량 게이트**(P0-2) 반려 로직 부착
   실사용 확인 완료 — 255줄 `.tsx` `Write` 가 실제로 취소됐다
 - ✅ **6** · **인라인 컴포넌트**(P0-3)
-  `Write` 반려 / `Edit` 경고로 분리. 실사용 확인은 아직
+  실사용 확인 완료 — `Write` 2개는 취소, `Edit` 2개는 써지고 경고
 - **7** · 조정 (임계값 · 예외 경로) — `.fe-harness.json` 확정
 - **8** · **그냥 쓰기** — 짜증난 순간 전부 11장에 기록 ← 진짜 산출물
 
