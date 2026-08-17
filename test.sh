@@ -303,5 +303,155 @@ expect_warn 'Edit-2개-경고'        2 inline-two-components.tsx
 expect_warn 'Edit-1개-무동작'      0 mixed-single-component.tsx
 expect_warn 'disable.warn-무동작'  0 inline-two-components.tsx '{"disable":{"warn":true}}'
 
+# --- 린트 피드백 (P1-6) --------------------------------------------------
+# 설정이 없으면 아무것도 안 한다. 있으면 남은 문제만 stderr 로 낸다.
+
+LINT_ERR=$TMP/lint.stderr
+
+run_lint() {
+  local config=$1
+  cp "$ROOT/fixtures/mixed-single-component.tsx" "$TMP/a.tsx"
+  if [ -n "$config" ]; then
+    printf '%s\n' "$config" > "$TMP/.fe-harness.json"
+  else
+    rm -f "$TMP/.fe-harness.json"
+  fi
+  printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/a.tsx"}}' "$TMP" "$TMP" \
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/lint-feedback.sh" 2> "$LINT_ERR"
+  lint_exit=$?
+}
+
+expect_lint() {
+  local label=$1 want=$2 config=$3
+  run_lint "$config"
+  if [ "$lint_exit" -eq "$want" ]; then
+    pass=$((pass + 1))
+    printf 'ok    %-32s exit=%s\n' "$label" "$lint_exit"
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %-32s exit=%s (기대 %s)\n' "$label" "$lint_exit" "$want"
+    sed 's/^/      /' "$LINT_ERR"
+  fi
+}
+
+# 린터 설정이 없는 프로젝트에서는 훅이 린터를 대신 만들어주지 않는다
+expect_lint '린터없음-무동작'    0 ''
+# 통과하는 린터
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/ok-lint.sh"; chmod +x "$TMP/ok-lint.sh"
+expect_lint '린트통과-무동작'    0 '{"lint":"./ok-lint.sh"}'
+# 실패하는 린터 → exit 2 로 Claude 에게 보여준다
+printf '#!/usr/bin/env bash\necho "1:1 error no-unused-vars"\nexit 1\n' > "$TMP/ng-lint.sh"
+chmod +x "$TMP/ng-lint.sh"
+expect_lint '린트실패-피드백'    2 '{"lint":"./ng-lint.sh"}'
+run_lint '{"lint":"./ng-lint.sh"}'
+if grep -q 'no-unused-vars' "$LINT_ERR"; then
+  pass=$((pass + 1)); printf 'ok    %-32s 린터 출력 전달됨\n' 'stderr-린터출력'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s\n' 'stderr-린터출력'
+fi
+expect_lint 'disable.lint-무동작' 0 '{"lint":"./ng-lint.sh","disable":{"lint":true}}'
+
+# --- 품질 게이트 (P1-4) --------------------------------------------------
+# 제일 중요한 건 무한 루프 방지다.
+
+GATE_ERR=$TMP/gate.stderr
+
+run_gate() {
+  local config=$1 active=${2:-false}
+  if [ -n "$config" ]; then
+    printf '%s\n' "$config" > "$TMP/.fe-harness.json"
+  else
+    rm -f "$TMP/.fe-harness.json"
+  fi
+  printf 'dirty\n' > "$TMP/dirty.txt"
+  printf '{"hook_event_name":"Stop","cwd":"%s","stop_hook_active":%s}' "$TMP" "$active" \
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/gate-stop.sh" 2> "$GATE_ERR"
+  gate_exit=$?
+}
+
+expect_gate() {
+  local label=$1 want=$2 config=$3 active=${4:-false}
+  run_gate "$config" "$active"
+  if [ "$gate_exit" -eq "$want" ]; then
+    pass=$((pass + 1))
+    printf 'ok    %-32s exit=%s\n' "$label" "$gate_exit"
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %-32s exit=%s (기대 %s)\n' "$label" "$gate_exit" "$want"
+    sed 's/^/      /' "$GATE_ERR"
+  fi
+}
+
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/ok.sh"; chmod +x "$TMP/ok.sh"
+printf '#!/usr/bin/env bash\necho "TS2304: Cannot find name"\nexit 2\n' > "$TMP/ng.sh"
+chmod +x "$TMP/ng.sh"
+
+# 설정이 없으면 절대 돌지 않는다 — 이 훅만은 추론하지 않는다
+expect_gate '설정없음-무동작'      0 ''
+expect_gate '타입체크통과-통과'    0 '{"typecheck":"./ok.sh"}'
+expect_gate '타입체크실패-차단'    2 '{"typecheck":"./ng.sh"}'
+expect_gate '테스트실패-차단'      2 '{"test":"./ng.sh"}'
+expect_gate 'disable.gate-무동작'  0 '{"typecheck":"./ng.sh","disable":{"gate":true}}'
+# stop_hook_active 를 무시하면 무한 루프다
+expect_gate '재진입-즉시통과'      0 '{"typecheck":"./ng.sh"}' true
+
+run_gate '{"typecheck":"./ng.sh"}'
+if grep -q 'TS2304' "$GATE_ERR" && grep -q '타입체크' "$GATE_ERR"; then
+  pass=$((pass + 1)); printf 'ok    %-32s 실패 출력 전달됨\n' 'stderr-검사출력'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s\n' 'stderr-검사출력'
+fi
+
+# --- 규칙 주입 (P1-7) ----------------------------------------------------
+# stdout 이 그대로 컨텍스트로 간다. 짧아야 하고, 실제 임계값을 말해야 한다.
+
+run_inject() {
+  local config=$1
+  if [ -n "$config" ]; then
+    printf '%s\n' "$config" > "$TMP/.fe-harness.json"
+  else
+    rm -f "$TMP/.fe-harness.json"
+  fi
+  printf '{"hook_event_name":"SessionStart","cwd":"%s","source":"startup"}' "$TMP" \
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/reinject.sh" 2>/dev/null
+}
+
+out=$(run_inject '')
+if printf '%s' "$out" | grep -q '250줄' && printf '%s' "$out" | grep -q '80줄' &&
+   printf '%s' "$out" | grep -q '1개'; then
+  pass=$((pass + 1)); printf 'ok    %-32s 실제 임계값 포함\n' '주입-기본문구'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-기본문구' "$out"
+fi
+
+out=$(run_inject '{"maxNewFileLines":120,"maxEditLines":40,"maxComponentsPerFile":2}')
+if printf '%s' "$out" | grep -q '120줄' && printf '%s' "$out" | grep -q '40줄'; then
+  pass=$((pass + 1)); printf 'ok    %-32s 설정을 반영\n' '주입-설정반영'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-설정반영' "$out"
+fi
+
+out=$(run_inject '{"inject":"우리 규칙 한 줄"}')
+if [ "$out" = "우리 규칙 한 줄" ]; then
+  pass=$((pass + 1)); printf 'ok    %-32s 사용자 문구로 대체\n' '주입-커스텀'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-커스텀' "$out"
+fi
+
+out=$(run_inject '{"disable":{"inject":true}}')
+if [ -z "$out" ]; then
+  pass=$((pass + 1)); printf 'ok    %-32s 아무것도 안 냄\n' 'disable.inject'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' 'disable.inject' "$out"
+fi
+
+# 주입 문구는 짧아야 한다. 여기 넣는 만큼 매 세션 컨텍스트를 먹는다.
+lines=$(run_inject '' | wc -l | tr -d ' ')
+if [ "$lines" -le 4 ]; then
+  pass=$((pass + 1)); printf 'ok    %-32s %s줄 (상한 4)\n' '주입-분량' "$lines"
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s %s줄 — 길면 스킬로 가야 한다\n' '주입-분량' "$lines"
+fi
+
 printf '\npass=%d fail=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

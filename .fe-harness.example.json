@@ -8,15 +8,23 @@
   "__maxComponentsPerFile": "허용 최대 개수다. 기본 1 — 한 파일에 컴포넌트가 2개 이상이면 반려한다. 늘리려면 2 이상으로.",
   "maxComponentsPerFile": 1,
 
-  "__extensions": "분량 게이트 대상 확장자. 생략하면 아래가 기본값이다. 문서·설정 파일은 분량으로 막지 않는다.",
+  "__extensions": "분량·컴포넌트·린트 훅의 대상 확장자. 생략하면 아래가 기본값이다. 문서·설정 파일은 막지 않는다.",
   "extensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "vue", "svelte"],
 
   "exclude": ["**/*.stories.tsx", "**/*.test.tsx", "**/*.spec.tsx", "src/gen/**"],
 
+  "__format": "비우면 prettier / biome 를 추론한다. 못 찾으면 아무것도 안 한다.",
   "format": "",
+
+  "__lint": "비우면 eslint / biome 를 추론한다. 린터 설정 파일이 없으면 추론하지 않는다.",
   "lint": "",
+
+  "__typecheck": "Stop 게이트는 추론하지 않는다. 여기에 명시했을 때만 돈다 — 차단하는 훅이라 확신 없는 추론으로 개발을 막으면 안 된다.",
   "typecheck": "",
   "test": "",
+
+  "__inject": "세션 시작 시 컨텍스트에 넣을 한 줄. 비우면 실제 임계값을 알려주는 기본 문구가 들어간다. 길게 쓰지 말 것 — 매 세션 컨텍스트를 먹는다.",
+  "inject": "",
 
   "__guidance": "반려 stderr 끝에 그대로 덧붙는 한 줄. 비어 있으면 안 붙는다. 플러그인은 어떤 리뷰 도구가 깔려 있는지 모르므로, 그 지식은 여기에만 둔다.",
   "guidance": "",
@@ -28,6 +36,8 @@
     "guard": false,
     "format": false,
     "warn": false,
-    "gate": false
+    "lint": false,
+    "gate": false,
+    "inject": false
   }
 }

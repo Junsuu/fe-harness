@@ -129,6 +129,38 @@ fh_format_cmd() {
   # 아무것도 못 찾으면 빈 문자열 — 조용히 통과
 }
 
+# 린트 명령. 설정 → 추론 → 빈 문자열.
+# 반환하는 명령은 대상 파일 경로 하나를 인자로 덧붙여 실행된다.
+#
+# 포맷과 달리 --fix 를 붙인다. 고칠 수 있는 건 조용히 고치고,
+# 남은 것만 Claude 에게 보여주는 게 목적이다.
+fh_lint_cmd() {
+  local root=$1 configured
+  configured=$(fh_cfg "$root" '.lint')
+  if [ -n "$configured" ]; then
+    printf '%s' "$configured"
+    return 0
+  fi
+
+  if _fh_has_eslint_config "$root" && [ -x "$root/node_modules/.bin/eslint" ]; then
+    printf '%s' 'node_modules/.bin/eslint --fix --no-warn-ignored'
+  elif _fh_has_biome_config "$root" && [ -x "$root/node_modules/.bin/biome" ]; then
+    printf '%s' 'node_modules/.bin/biome check --write'
+  fi
+  # 설정 파일이 없으면 추론하지 않는다. 린터 설정이 없는 프로젝트에서
+  # 훅이 린터를 대신 만들어줄 수는 없다.
+}
+
+_fh_has_eslint_config() {
+  local root=$1 f
+  for f in eslint.config.js eslint.config.mjs eslint.config.cjs eslint.config.ts \
+           .eslintrc .eslintrc.js .eslintrc.cjs .eslintrc.json .eslintrc.yml .eslintrc.yaml; do
+    [ -f "$root/$f" ] && return 0
+  done
+  [ -f "$root/package.json" ] &&
+    [ -n "$(jq -r '.eslintConfig // empty' "$root/package.json" 2>/dev/null)" ]
+}
+
 _fh_has_biome_config() {
   [ -f "$1/biome.json" ] || [ -f "$1/biome.jsonc" ]
 }

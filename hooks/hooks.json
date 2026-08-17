@@ -1,5 +1,18 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/reinject.sh",
+            "args": [],
+            "timeout": 10,
+            "statusMessage": "규칙 주입"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "^(Write|Edit)$",
@@ -38,6 +51,26 @@
             "args": [],
             "timeout": 30,
             "statusMessage": "구조 신호 확인"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/lint-feedback.sh",
+            "args": [],
+            "timeout": 60,
+            "statusMessage": "린트"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/gate-stop.sh",
+            "args": [],
+            "timeout": 300,
+            "statusMessage": "타입체크 · 테스트"
           }
         ]
       }
