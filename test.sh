@@ -104,5 +104,57 @@ expect_format 'disable.format-무동작' 0 '{"format":"./fake-fmt.sh","disable":
 expect_format '프로젝트밖-무동작' 0 '{"format":"./fake-fmt.sh"}' "$TMP.outside.tsx"
 rm -f "$TMP.outside.tsx"
 
+# --- 분량 게이트 관찰 모드 (P0-2) ----------------------------------------
+# 지금은 아무것도 막지 않는다. 확인할 것은 두 가지 —
+# 무슨 일이 있어도 exit 0 인가, payload 를 온전히 떠내는가.
+
+OBS=$TMP/observe
+
+run_guard() {
+  local config=$1 body=$2
+  rm -rf "$OBS"
+  if [ -n "$config" ]; then
+    printf '%s\n' "$config" > "$TMP/.fe-harness.json"
+  else
+    rm -f "$TMP/.fe-harness.json"
+  fi
+  printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/a.tsx","content":%s}}' \
+    "$TMP" "$TMP" "$(printf '%s' "$body" | jq -Rs .)" \
+    | env -u CLAUDE_PROJECT_DIR FE_HARNESS_OBSERVE_DIR="$OBS" "$ROOT/hooks/scripts/guard-size.sh"
+  guard_exit=$?
+  guard_files=$(ls "$OBS"/payload-*.json 2>/dev/null | wc -l | tr -d ' ')
+}
+
+expect_guard() {
+  local label=$1 want_files=$2 config=$3 body=$4
+  run_guard "$config" "$body"
+  if [ "$guard_files" = "$want_files" ] && [ "$guard_exit" -eq 0 ]; then
+    pass=$((pass + 1))
+    printf 'ok    %-32s payload=%s exit=%s\n' "$label" "$guard_files" "$guard_exit"
+  else
+    fail=$((fail + 1))
+    printf 'FAIL  %-32s payload=%s exit=%s (기대 %s / exit 0)\n' \
+      "$label" "$guard_files" "$guard_exit" "$want_files"
+  fi
+}
+
+expect_guard '관찰-payload기록' 1 '' 'const A = 1;'
+expect_guard 'disable.guard-무동작' 0 '{"disable":{"guard":true}}' 'const A = 1;'
+
+# 떠낸 payload 에서 원문이 손실 없이 복원되는가.
+# 훅이 스스로를 검증할 수는 없지만, 파이프를 타는 동안 깨지지 않는지는 볼 수 있다.
+big=$(awk 'BEGIN { for (i = 1; i <= 400; i++) print "const v" i " = " i ";" }')
+run_guard '' "$big"
+restored=$(jq -r '.tool_input.content' "$OBS"/payload-*.json | awk 'END { print NR }')
+logged=$(awk -F'\t' '{ print $3 }' "$OBS/observe.log" | head -1)
+if [ "$restored" = "400" ] && [ "$logged" = "lines=400" ] && [ "$guard_exit" -eq 0 ]; then
+  pass=$((pass + 1))
+  printf 'ok    %-32s 복원=%s줄 기록=%s\n' '관찰-400줄무손실' "$restored" "$logged"
+else
+  fail=$((fail + 1))
+  printf 'FAIL  %-32s 복원=%s줄 기록=%s (기대 400 / lines=400)\n' \
+    '관찰-400줄무손실' "$restored" "$logged"
+fi
+
 printf '\npass=%d fail=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

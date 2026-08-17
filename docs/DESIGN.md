@@ -157,7 +157,10 @@ stderr는 **그 턴 안에서** Claude에게 간다. 피드백 루프를 분 단
   한다. 리뷰 도구에 수정 권한이 없는 경우를 메우려던 항목이니, 그걸로 충분하면
   만들지 않는다
 - **12 · `harness-doctor` 스킬** — 새 저장소 진단
-- **13 · eval 자동화** — 최대 차별점
+- **13 · eval 케이스와 채점 기준** — 임계값이 근거를 갖게 만드는 유일한 수단
+  하니스는 만들지 않는다. `claude plugin eval`이 이미 `evals/**/case.yaml`
+  (또는 `prompt.md` + `graders/*.md`)를 돌리고 **no-plugin baseline arm 을
+  자동으로 추가**한다. 우리가 쓸 것은 케이스와 채점 기준뿐이다
 
 ### 의도적으로 하지 않는 일
 
@@ -256,7 +259,8 @@ P2-13 eval을 만들 때 쓸 아이디어 3개. `toss/frontend-fundamentals` 저
   "STOP - Read This First" + 변명별 반박 표
 - `eval/graders/grader.md`의 **`Must NOT Suggest`** 절
   과잉 엔지니어링 제안을 감점 처리
-- eval의 **baseline vs with-skill 비교** 설계
+- ~~eval의 **baseline vs with-skill 비교** 설계~~
+  빌릴 필요 없다 — `claude plugin eval`이 baseline arm 을 기본으로 붙인다
 
 ---
 
@@ -359,11 +363,12 @@ fe-harness/
 │   ├── plugin.json          ← 이 폴더엔 매니페스트만
 │   └── marketplace.json
 ├── hooks/
-│   ├── hooks.json           ← format.sh 만 등록됨
+│   ├── hooks.json           ← format.sh + guard-size.sh
 │   └── scripts/
 │       ├── lib-detect.sh    ← 5장, 검증 완료
 │       ├── lib-config.sh    ← 설정 3단 폴백
-│       └── format.sh        ← P0-1 ✅
+│       ├── format.sh        ← P0-1 ✅
+│       └── guard-size.sh    ← P0-2 관찰 모드. 아직 아무것도 안 막는다
 ├── fixtures/                ← 탐지 로직 테스트 데이터 8개
 ├── test.sh
 ├── .fe-harness.example.json
@@ -608,12 +613,22 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/a.tsx","content":"x"}
 **미검증.** P0-2가 여기 걸려 있다.
 
 `guard-size.sh` 관찰 모드로 확인한다. `Write`의 `content`, `Edit`의 `new_string`
-둘 다 본다.
+둘 다 본다. 관찰 결과는 **저장소 밖**에 쌓인다:
 
 ```bash
-jq '.tool_input | keys' <떠낸 payload>
-jq -r '.tool_input.content // .tool_input.new_string' <떠낸 payload> | wc -l
+DIR=${FE_HARNESS_OBSERVE_DIR:-${TMPDIR:-/tmp}/fe-harness-observe}
+
+cat "$DIR/observe.log"        # 한 줄 요약 — tool, lines, bytes, keys, 대상 파일
+ls "$DIR"/payload-*.json      # 훅이 받은 stdin 전문
+
+# 판정: 훅이 본 줄 수 == 실제 파일 줄 수 인가
+jq -r '.tool_input.content' "$DIR/payload-<시각>.json" | wc -l
+wc -l <대상 파일>
 ```
+
+두 숫자가 같으면 전문으로 온 것이다. `Edit`은 조각만 오므로(3장) `new_string`의
+줄 수와 파일 줄 수를 비교하면 안 된다 — `keys`에 `new_string`이 있는지,
+그 값이 잘리지 않았는지만 본다.
 
 잘려서 오면 `PostToolUse`에서 파일을 읽는 방식으로 바꿔야 하고, **그러면 반려가
 아니라 경고만 가능해져 설계가 크게 달라진다.**
