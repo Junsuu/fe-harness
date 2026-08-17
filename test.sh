@@ -141,8 +141,8 @@ expect_guard() {
 # 비대칭 임계값 — 새 파일은 넉넉하게, 기존 수정은 빡빡하게
 expect_guard 'Write-249줄-통과'      0 Write "$TMP/a.tsx" 249
 expect_guard 'Write-251줄-반려'      2 Write "$TMP/a.tsx" 251
-expect_guard 'Edit-149줄-통과'       0 Edit  "$TMP/a.tsx" 149
-expect_guard 'Edit-151줄-반려'       2 Edit  "$TMP/a.tsx" 151
+expect_guard 'Edit-79줄-통과'        0 Edit  "$TMP/a.tsx" 79
+expect_guard 'Edit-81줄-반려'        2 Edit  "$TMP/a.tsx" 81
 
 # 설정으로 조정된다
 expect_guard '임계값설정-반려'        2 Write "$TMP/a.tsx" 60  '{"maxNewFileLines":50}'

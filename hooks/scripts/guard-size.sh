@@ -57,7 +57,7 @@ case $tool in
     ;;
   Edit)
     body=$(_field '.tool_input.new_string')
-    limit=$(fh_cfg_num "$root" '.maxEditLines' 150)
+    limit=$(fh_cfg_num "$root" '.maxEditLines' 80)
     ;;
   *)
     exit 0

@@ -2,7 +2,8 @@
   "_": "프로젝트 루트에 .fe-harness.json 으로 복사해서 쓴다. 이 파일이 있으면 추론 없이 무조건 신뢰한다.",
 
   "maxNewFileLines": 250,
-  "maxEditLines": 150,
+  "__maxEditLines": "한 번의 Edit 에 추가되는 줄 수. 실측 p95 는 저장소별 38~72 였다 (2026-08-18, 저장소 5개 · 수정 24,976건).",
+  "maxEditLines": 80,
 
   "__maxComponentsPerFile": "허용 최대 개수다. 기본 1 — 한 파일에 컴포넌트가 2개 이상이면 반려한다. 늘리려면 2 이상으로.",
   "maxComponentsPerFile": 1,
