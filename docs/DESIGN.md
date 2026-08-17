@@ -214,13 +214,33 @@ boolean 2개지만 완벽하게 정상이다. `showHeader` + `isCompact`는 같�
 서브에이전트(구현 전 설계·단계 분해) 같은 것들. 한 벌 더 쓰면 위에 적은
 "같은 층위 두 벌" 문제를 우리가 직접 만드는 셈이다.
 
-fe-harness가 스킬로 채울 빈칸은 **"이 저장소에서는 무엇을 어디에 두는가"**다.
-범용 도구가 알 수 없고, 프로젝트마다 다르고, 판단이 필요한 것.
+fe-harness가 스킬로 채울 빈칸은 **"우리가 왜 막았고 그래서 뭘 하라는 건가"**다.
+왜 막았는지는 우리만 알고 아무도 대신 알려줄 수 없다.
+이건 "좋은 코드란 무엇인가"가 아니므로 위 원칙과 충돌하지 않는다 —
+**의존성을 만드는 게 아니라 자기 기능을 완성하는 것이다.**
 
 **훅과 스킬은 이어붙인다.** 훅의 stderr는 모델이 읽는 프롬프트다(7장).
 분량 게이트가 반려할 때 stderr에 "쪼개기 전에 이 스킬을 먼저 호출하라"를 쓰면,
 **훅이 트리거 · 스킬이 판단**이 된다. 훅은 "지금이 그 판단을 할 시점"이라는 것만
 결정적으로 보장한다.
+
+단, **가리키는 스킬은 반드시 fe-harness 안에 있어야 한다**(7장).
+
+#### 그 절차 스킬은 아직 만들지 않는다 — 조건부
+
+필요하다는 증거가 아직 없다. P0-2의 첫 버전은 stderr 문구만으로 간다:
+
+```
+400줄은 250줄 제한을 넘습니다.
+컴포넌트 단위로 파일을 나눠서 각각 Write 하세요.
+```
+
+이걸로 모델이 제대로 대응하면 스킬은 필요 없다. **엉뚱하게 대응하는 게 반복되면**
+— 한 파일을 두 번에 나눠 쓰는 식으로 우회한다든지 — 그게 스킬이 필요하다는
+증거이고, 11장 조정 기록의 항목이 된다. 그때 근거를 갖고 만든다.
+
+9장의 경고와도 같은 방향이다: 스킬은 프롬프트 튜닝이라 끝이 없어서
+먼저 손대면 거기서 못 빠져나온다.
 
 **그 외에 안 만드는 것**
 
@@ -328,28 +348,79 @@ P2 착수 시점에도 소비자가 없으면 그때 지운다. **조용히 죽�
 
 ## 6. 폴더 구조
 
+**흔한 실수** — `hooks/`, `skills/`, `agents/`를 `.claude-plugin/` **안에** 넣는 것.
+매니페스트만 그 안에 들어간다.
+
+### 현재 (P0 진행 중)
+
 ```
 fe-harness/
 ├── .claude-plugin/
 │   ├── plugin.json          ← 이 폴더엔 매니페스트만
 │   └── marketplace.json
 ├── hooks/
-│   ├── hooks.json
+│   ├── hooks.json           ← format.sh 만 등록됨
 │   └── scripts/
 │       ├── lib-detect.sh    ← 5장, 검증 완료
 │       ├── lib-config.sh    ← 설정 3단 폴백
-│       ├── format.sh        ← P0-1
-│       ├── guard-write.sh   ← P0-2, P0-3 (PreToolUse)
-│       └── warn-write.sh    ← P1-6 린트 피드백 (PostToolUse)
-├── fixtures/                ← 탐지 로직 테스트 데이터
+│       └── format.sh        ← P0-1 ✅
+├── fixtures/                ← 탐지 로직 테스트 데이터 8개
 ├── test.sh
 ├── .fe-harness.example.json
 ├── docs/DESIGN.md           ← 이 문서
 └── README.md
 ```
 
-**흔한 실수** — `hooks/`, `skills/`, `agents/`를 `.claude-plugin/` **안에** 넣는 것.
-매니페스트만 그 안에 들어간다.
+### P2까지 다 만들었을 때
+
+```
+fe-harness/
+├── .claude-plugin/
+│   ├── plugin.json
+│   └── marketplace.json
+├── hooks/
+│   ├── hooks.json
+│   └── scripts/
+│       ├── lib-detect.sh          ← 라이브러리 (훅 아님)
+│       ├── lib-config.sh          ← 라이브러리 (훅 아님)
+│       ├── format.sh              P0-1  PostToolUse
+│       ├── guard-size.sh          P0-2  PreToolUse   ★ 반려
+│       ├── guard-components.sh    P0-3  판정 단위 미정 ★ 반려
+│       ├── gate-stop.sh           P1-4  Stop         ★ 반려
+│       ├── lint-feedback.sh       P1-6  PostToolUse    경고
+│       ├── reinject.sh            P1-7  SessionStart
+│       └── warn-tokens.sh         P2-8  PostToolUse    경고
+├── skills/
+│   ├── harness-doctor/            P2-12 새 저장소 진단
+│   ├── refactor-pass/             P2-11 ⚠️ 조건부 — 기본 탑재 도구로
+│   │                                    충분하면 안 만든다
+│   └── split-plan/                조건부 — 반려 대응 절차.
+│                                  stderr 만으로 부족하다는 증거가 나오면
+├── agents/
+│   └── entropy-auditor.md         P2-10 누적 구조 부채 감사
+├── evals/                         P2-13 baseline vs with-plugin 비교
+├── fixtures/
+├── test.sh
+├── .fe-harness.example.json
+├── docs/DESIGN.md
+├── LICENSE
+└── README.md
+```
+
+**최대 규모: 훅 스크립트 7개 + 라이브러리 2개 + 스킬 3개 + 서브에이전트 1개.**
+그중 스킬 2개는 조건부라 안 만들 수 있다. 반려하는 훅은 3개뿐이고 나머지는
+경고이거나 아무것도 막지 않는다.
+
+**플러그인에 들어가지 않는 것**
+
+- **P2-9 `.claude/rules/` + grep 강제** — 프로젝트 쪽이다. 플러그인이 남의
+  저장소에 `.claude/rules/`를 심을 수는 없다. README에 예시만 싣는다
+- **범용 품질 원칙 스킬** — 4장 「의도적으로 하지 않는 일」
+- **`.prettierrc` 같은 포매터 설정** — 하네스는 포매터를 호출할 뿐 정의하지 않는다
+
+**이름이 바뀐 것** — 초안의 `guard-write.sh`(P0-2+P0-3)와 `warn-write.sh`(P1-5+P1-6)는
+쪼개졌다. P0-2와 P0-3은 판정 단위가 달라서 한 스크립트에 못 들어가고(3장),
+P1-5는 폐기됐다(4장).
 
 ### hooks.json
 
@@ -364,7 +435,7 @@ fe-harness/
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-write.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-size.sh",
             "args": [],
             "timeout": 30,
             "statusMessage": "작성 규모 확인"
@@ -385,10 +456,10 @@ fe-harness/
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/warn-write.sh",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/lint-feedback.sh",
             "args": [],
             "timeout": 60,
-            "statusMessage": "구조 신호 확인"
+            "statusMessage": "린트 확인"
           }
         ]
       }
@@ -431,12 +502,24 @@ fe-harness/
   "lint": "",
   "typecheck": "",
   "test": "",
+  "guidance": "",
   "disable": { "guard": false, "format": false, "warn": false, "gate": false }
 }
 ```
 
 **`disable`을 반드시 넣는다.** 도구가 방해될 때 끌 방법이 없으면 사용자는
 플러그인을 삭제한다.
+
+**`guidance`는 커플링을 프로젝트 쪽으로 밀어내는 장치다.** 반려 stderr 끝에
+그대로 덧붙는 한 줄이고, 비어 있으면 아무것도 안 붙는다.
+
+```json
+{ "guidance": "쪼개기 전에 <이 저장소에 깔린 리뷰 스킬>을 먼저 확인할 것" }
+```
+
+플러그인은 어떤 스킬이 깔려 있는지 알 필요가 없고 알아서도 안 된다(7장).
+"내 환경엔 저 도구가 있다"는 **사용자의 사실**이지 fe-harness의 사실이 아니므로,
+그 지식은 프로젝트 설정에만 둔다.
 
 ---
 
@@ -476,6 +559,12 @@ fe-harness/
 **stderr 메시지는 사람이 아니라 Claude가 읽는다.** "Blocked"만 쓰면 우회를
 시도한다. **"대신 무엇을 하라"를 반드시 넣는다.**
 
+**훅은 자기 플러그인에 들어 있는 스킬만 가리킨다.** stderr에 없는 스킬 이름을
+쓰면 모델은 호출을 시도했다가 실패하고 한 턴을 버린다. 더 나쁜 경우는 **이름만
+보고 내용을 짐작해서 진행**하는 것이다 — 지시는 받았는데 본문은 못 읽었으니까.
+남의 플러그인 스킬을 가리키는 건 stderr 문자열로 의존성을 만드는 짓이다.
+사용자별 조합은 `.fe-harness.json`의 `guidance`로 밀어낸다(6장).
+
 **차단 vs 경고 판단.** 이 규칙을 정당하게 어겨야 하는 경우가 **주 1회 이상이면
 경고**로 간다. 짜증나는 훅은 결국 꺼진다.
 
@@ -496,7 +585,7 @@ claude --safe-mode                    # 전부 끄고 대조
 
 ```bash
 echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/a.tsx","content":"x"}}' \
-  | ./guard-write.sh; echo "exit=$?"
+  | ./guard-size.sh; echo "exit=$?"
 ```
 
 ---
@@ -506,19 +595,19 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/a.tsx","content":"x"}
 > **의사결정 (2026-08-17) — 검증을 별도 단계로 두지 않는다.**
 >
 > 초안은 착수 전에 버릴 훅을 settings에 심어 payload를 뜨는 계획이었다.
-> 그런데 그건 `guard-write.sh`가 하는 일과 똑같다. **버릴 훅 대신 진짜 훅의 첫
+> 그런데 그건 `guard-size.sh`가 하는 일과 똑같다. **버릴 훅 대신 진짜 훅의 첫
 > 버전을 _관찰 모드_(payload 로깅 후 `exit 0`)로 만들면 검증이 부산물로 나온다.**
 > 플러그인 설치 때 어차피 세션 재시작이 필요하니 그 한 번에 합친다.
 >
 > 틀렸을 때 손해가 작다는 것이 근거다. content가 잘려 와도 버려지는 건
-> `guard-write.sh`의 payload 파싱부뿐이고, `lib-detect.sh` · 설정 3단 폴백 ·
+> `guard-size.sh`의 payload 파싱부뿐이고, `lib-detect.sh` · 설정 3단 폴백 ·
 > 임계값 로직 · stderr 문구는 전부 살아남는다. 값싼 베팅이라 먼저 걸어본다.
 
 ### ① `PreToolUse`의 `tool_input.content`가 전문으로 오는가
 
 **미검증.** P0-2가 여기 걸려 있다.
 
-`guard-write.sh` 관찰 모드로 확인한다. `Write`의 `content`, `Edit`의 `new_string`
+`guard-size.sh` 관찰 모드로 확인한다. `Write`의 `content`, `Edit`의 `new_string`
 둘 다 본다.
 
 ```bash
@@ -555,7 +644,7 @@ jq -r '.tool_input.content // .tool_input.new_string' <떠낸 payload> | wc -l
   `claude plugin validate --strict` 통과 + 포맷 훅 케이스 통과
 - **3** · 설치 + 세션 재시작
   `/hooks`에 뜨고, 첫 실행에 `Failed with non-blocking status code` 없음
-- **4** · `guard-write.sh` **관찰 모드**
+- **4** · `guard-size.sh` **관찰 모드**
   payload 로그에 `content`/`new_string` 전문 존재 → 8장 ① 판정
 - **5** · **분량 게이트**(P0-2) 반려 로직 부착
   일부러 큰 파일 쓰게 해서 반려 확인

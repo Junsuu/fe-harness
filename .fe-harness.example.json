@@ -13,6 +13,9 @@
   "typecheck": "",
   "test": "",
 
+  "__guidance": "반려 stderr 끝에 그대로 덧붙는 한 줄. 비어 있으면 안 붙는다. 플러그인은 어떤 리뷰 도구가 깔려 있는지 모르므로, 그 지식은 여기에만 둔다.",
+  "guidance": "",
+
   "disable": {
     "guard": false,
     "format": false,
