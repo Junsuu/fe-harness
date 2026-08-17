@@ -30,11 +30,80 @@ fh_cfg() {
   jq -r "$path // empty" "$file" 2>/dev/null
 }
 
+# 숫자 설정. 값이 없거나 숫자가 아니면 기본값.
+# 사용: fh_cfg_num <root> <jq 경로> <기본값>
+fh_cfg_num() {
+  local root=$1 path=$2 default=$3 value
+  value=$(fh_cfg "$root" "$path")
+  case $value in
+    '' | *[!0-9]*) printf '%s' "$default" ;;
+    *) printf '%s' "$value" ;;
+  esac
+}
+
+# 배열 설정을 줄 단위로. 없으면 아무것도 출력하지 않는다.
+fh_cfg_list() {
+  local root=$1 path=$2 file=$1/.fe-harness.json
+  [ -f "$file" ] || return 0
+  jq -r "$path[]? // empty" "$file" 2>/dev/null
+}
+
 # 해당 훅이 꺼져 있는가. .fe-harness.json 의 disable.<name> 이 true 면 0(참).
 # disable 을 반드시 넣는다 — 도구가 방해될 때 끌 방법이 없으면 사용자는 삭제한다.
 fh_disabled() {
   local root=$1 name=$2
   [ "$(fh_cfg "$root" ".disable.$name")" = "true" ]
+}
+
+# 게이트 대상 확장자인가. 기본값은 프론트엔드 소스 확장자.
+#
+# 문서·설정·스타일 파일을 분량으로 막지 않는다. 1장의 증상은 전부 컴포넌트
+# 이야기이고, 긴 문서는 정상적으로 자주 쓴다 — 7장의 "정당하게 어겨야 하는
+# 경우가 잦으면 막지 말 것" 기준에 걸린다.
+fh_ext_allowed() {
+  local root=$1 file=$2 ext=${2##*.} configured e
+  [ "$ext" != "$file" ] || return 1  # 확장자 없음
+
+  configured=$(fh_cfg_list "$root" '.extensions')
+  if [ -z "$configured" ]; then
+    configured='ts
+tsx
+js
+jsx
+mjs
+cjs
+vue
+svelte'
+  fi
+
+  for e in $configured; do
+    [ "$ext" = "$e" ] && return 0
+  done
+  return 1
+}
+
+# exclude 패턴에 걸리는가. 절대경로와 프로젝트 상대경로 둘 다 본다.
+fh_excluded() {
+  local root=$1 file=$2 rel=${2#"$1"/} pattern
+  while IFS= read -r pattern; do
+    [ -n "$pattern" ] || continue
+    _fh_glob_match "$pattern" "$rel" && return 0
+    _fh_glob_match "$pattern" "$file" && return 0
+  done <<EOF
+$(fh_cfg_list "$root" '.exclude')
+EOF
+  return 1
+}
+
+# bash 3.2 의 case 패턴에는 ** 가 없다. case 의 * 는 / 도 매치하므로
+# ** 를 * 로 낮추고, "**/" 접두사는 떼어낸 형태로도 한 번 더 본다
+# (`**/*.test.tsx` 가 최상위의 `a.test.tsx` 에도 걸려야 한다).
+_fh_glob_match() {
+  local pattern=$1 path=$2 bare=${1#'**/'}
+  pattern=${pattern//'**'/'*'}
+  case $path in $pattern) return 0 ;; esac
+  case $path in $bare) return 0 ;; esac
+  return 1
 }
 
 # 포맷 명령. 설정 → 추론 → 빈 문자열.

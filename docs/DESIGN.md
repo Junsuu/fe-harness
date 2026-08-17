@@ -2,7 +2,7 @@
 
 > Claude Code 플러그인. AI 코딩 세션에서 **코드가 써지는 시점에** 품질을 통제한다.
 >
-> 저자: tinyhex · 작성 2026-08-17 · 최종 갱신 2026-08-17 · 기준 Claude Code v2.1.231
+> 저자: tinyhex · 작성 2026-08-17 · 최종 갱신 2026-08-18 · 기준 Claude Code v2.1.231
 >
 > 이 문서는 구현 브리프이자 의사결정 기록이다. 구현이 바뀌면 여기도 갱신한다.
 > 다른 절을 가리킬 때는 `8장`처럼 장 번호로 쓴다.
@@ -78,8 +78,8 @@ Claude Code로 몇 주간 같은 저장소를 작업하면 코드가 난잡해�
 온다. `Write`면 `.tool_input.content`, `Edit`면 `.tool_input.new_string`.
 여기서 exit 2로 거부하면 파일에 안 들어가고 Claude가 다시 쓴다.
 
-> ⚠️ **미검증** — `content`가 잘리지 않고 전문으로 오는지는 아직 실측 안 됨.
-> 8장 참조.
+> ✅ **검증됨** (2026-08-18) — `content`는 잘리지 않고 전문으로 온다.
+> 바이트 단위로 실제 파일과 일치함을 확인했다. 8장 ① 참조.
 
 > ⚠️ **`Edit`은 파일 전문이 오지 않는다.** `new_string`은 교체 조각이다.
 >
@@ -87,7 +87,7 @@ Claude Code로 몇 주간 같은 저장소를 작업하면 코드가 난잡해�
 > 그러나 컴포넌트 카운트(P0-3)는 **파일 전체 기준**이어야 한다 — 두 번째
 > 컴포넌트를 `Edit`으로 끼워 넣으면 `new_string`엔 1개만 보이고 파일엔 2개가 된다.
 >
-> 이건 위 미검증 항목의 답과 무관하게 발생한다. 대응은 4장 P0-3 참조.
+> 이건 위 항목과 무관하게 발생한다. 대응은 4장 P0-3 참조.
 
 ---
 
@@ -366,9 +366,9 @@ fe-harness/
 │   ├── hooks.json           ← format.sh + guard-size.sh
 │   └── scripts/
 │       ├── lib-detect.sh    ← 5장, 검증 완료
-│       ├── lib-config.sh    ← 설정 3단 폴백
+│       ├── lib-config.sh    ← 설정 3단 폴백 · exclude · 확장자
 │       ├── format.sh        ← P0-1 ✅
-│       └── guard-size.sh    ← P0-2 관찰 모드. 아직 아무것도 안 막는다
+│       └── guard-size.sh    ← P0-2 ✅ 반려 동작
 ├── fixtures/                ← 탐지 로직 테스트 데이터 8개
 ├── test.sh
 ├── .fe-harness.example.json
@@ -618,28 +618,45 @@ echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/a.tsx","content":"x"}
 
 ### ① `PreToolUse`의 `tool_input.content`가 전문으로 오는가
 
-**미검증.** P0-2가 여기 걸려 있다.
+✅ **검증 완료** (2026-08-18). **전문으로 온다 — 반려 설계가 살았다.**
 
-`guard-size.sh` 관찰 모드로 확인한다. `Write`의 `content`, `Edit`의 `new_string`
-둘 다 본다. 관찰 결과는 **저장소 밖**에 쌓인다:
+100줄 파일을 `Write` 시킨 뒤 payload의 `content`와 실제 파일을 `cmp`로 비교해
+**바이트 단위 완전 일치**를 확인했다. `Edit`의 `new_string`은 예상대로
+교체 조각만 왔다(3장 ④).
+
+| | `tool_input` 키 |
+|---|---|
+| `Write` | `content`, `file_path` |
+| `Edit` | `old_string`, `new_string`, `replace_all`, `file_path` |
+
+payload 최상위 키도 기록해 둔다 — 나중에 쓸 것이 있다:
+
+```
+cwd, effort, hook_event_name, permission_mode, prompt_id,
+session_id, tool_input, tool_name, tool_use_id, transcript_path
+```
+
+`permission_mode`가 온다는 건 "이 모드에선 게이트를 느슨하게" 같은 게
+가능하다는 뜻이다. 지금은 쓰지 않는다.
+
+<details>
+<summary>확인 절차 (관찰 모드를 다시 켤 때)</summary>
+
+`.fe-harness.json`에 `"observe": true`를 넣으면 payload가 저장소 밖에 쌓인다.
 
 ```bash
 DIR=${FE_HARNESS_OBSERVE_DIR:-${TMPDIR:-/tmp}/fe-harness-observe}
+ls "$DIR"/payload-*.json
 
-cat "$DIR/observe.log"        # 한 줄 요약 — tool, lines, bytes, keys, 대상 파일
-ls "$DIR"/payload-*.json      # 훅이 받은 stdin 전문
-
-# 판정: 훅이 본 줄 수 == 실제 파일 줄 수 인가
-jq -r '.tool_input.content' "$DIR/payload-<시각>.json" | wc -l
-wc -l <대상 파일>
+# 판정 — jq -r 은 개행을 덧붙이므로 -j 를 쓴다
+jq -j '.tool_input.content' "$DIR/payload-<시각>.json" > /tmp/from-payload
+cmp /tmp/from-payload <대상 파일>
 ```
 
-두 숫자가 같으면 전문으로 온 것이다. `Edit`은 조각만 오므로(3장) `new_string`의
-줄 수와 파일 줄 수를 비교하면 안 된다 — `keys`에 `new_string`이 있는지,
-그 값이 잘리지 않았는지만 본다.
+`Edit`은 조각만 오므로 줄 수를 파일과 비교하면 안 된다.
+`keys`에 `new_string`이 있는지, 그 값이 잘리지 않았는지만 본다.
 
-잘려서 오면 `PostToolUse`에서 파일을 읽는 방식으로 바꿔야 하고, **그러면 반려가
-아니라 경고만 가능해져 설계가 크게 달라진다.**
+</details>
 
 ### ② macOS의 BSD `grep`/`awk`에서 탐지 로직이 동일하게 동작하는가
 
@@ -665,12 +682,11 @@ wc -l <대상 파일>
 - ✅ **1** · 탐지 로직 + 회귀 테스트 — `test.sh` 통과
 - ✅ **2** · 폴더 골격 + 매니페스트 + **포맷 훅**(P0-1)
   `claude plugin validate --strict` 통과 + 포맷 훅 케이스 통과
-- **3** · 설치 + 세션 재시작
-  `/hooks`에 뜨고, 첫 실행에 `Failed with non-blocking status code` 없음
-- **4** · `guard-size.sh` **관찰 모드**
-  payload 로그에 `content`/`new_string` 전문 존재 → 8장 ① 판정
-- **5** · **분량 게이트**(P0-2) 반려 로직 부착
-  일부러 큰 파일 쓰게 해서 반려 확인
+- ✅ **3** · 설치 + 세션 재시작
+  `claude plugin list` Status 정상. `plugin.json` 중복 hooks 참조로 한 번 실패(7장)
+- ✅ **4** · `guard-size.sh` **관찰 모드** → 8장 ① 판정 완료. **전문으로 온다**
+- ✅ **5** · **분량 게이트**(P0-2) 반려 로직 부착
+  Write 251줄 / Edit 151줄에서 exit 2 확인. 실사용 확인은 아직
 - **6** · **인라인 컴포넌트**(P0-3)
   판정 단위 결정 후(3장) 컴포넌트 2개짜리 파일 반려 확인
 - **7** · 조정 (임계값 · 예외 경로) — `.fe-harness.json` 확정

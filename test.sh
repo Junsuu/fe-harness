@@ -104,56 +104,101 @@ expect_format 'disable.format-무동작' 0 '{"format":"./fake-fmt.sh","disable":
 expect_format '프로젝트밖-무동작' 0 '{"format":"./fake-fmt.sh"}' "$TMP.outside.tsx"
 rm -f "$TMP.outside.tsx"
 
-# --- 분량 게이트 관찰 모드 (P0-2) ----------------------------------------
-# 지금은 아무것도 막지 않는다. 확인할 것은 두 가지 —
-# 무슨 일이 있어도 exit 0 인가, payload 를 온전히 떠내는가.
+# --- 분량 게이트 (P0-2) --------------------------------------------------
+# 반려는 exit 2 여야 한다. exit 1 은 차단이 아니라 무시된다.
 
-OBS=$TMP/observe
+nlines() { awk -v n="$1" 'BEGIN { for (i = 1; i <= n; i++) print "const v" i " = " i ";" }'; }
+
+GUARD_ERR=$TMP/guard.stderr
 
 run_guard() {
-  local config=$1 body=$2
-  rm -rf "$OBS"
+  local tool=$1 target=$2 body=$3 config=$4 key
   if [ -n "$config" ]; then
     printf '%s\n' "$config" > "$TMP/.fe-harness.json"
   else
     rm -f "$TMP/.fe-harness.json"
   fi
-  printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s/a.tsx","content":%s}}' \
-    "$TMP" "$TMP" "$(printf '%s' "$body" | jq -Rs .)" \
-    | env -u CLAUDE_PROJECT_DIR FE_HARNESS_OBSERVE_DIR="$OBS" "$ROOT/hooks/scripts/guard-size.sh"
+  [ "$tool" = Write ] && key=content || key=new_string
+  printf '{"tool_name":"%s","cwd":"%s","tool_input":{"file_path":"%s","%s":%s}}' \
+    "$tool" "$TMP" "$target" "$key" "$(printf '%s' "$body" | jq -Rs .)" \
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/guard-size.sh" 2> "$GUARD_ERR"
   guard_exit=$?
-  guard_files=$(ls "$OBS"/payload-*.json 2>/dev/null | wc -l | tr -d ' ')
 }
 
+# want: 0 = 통과, 2 = 반려
 expect_guard() {
-  local label=$1 want_files=$2 config=$3 body=$4
-  run_guard "$config" "$body"
-  if [ "$guard_files" = "$want_files" ] && [ "$guard_exit" -eq 0 ]; then
+  local label=$1 want=$2 tool=$3 target=$4 nline=$5 config=${6:-}
+  run_guard "$tool" "$target" "$(nlines "$nline")" "$config"
+  if [ "$guard_exit" -eq "$want" ]; then
     pass=$((pass + 1))
-    printf 'ok    %-32s payload=%s exit=%s\n' "$label" "$guard_files" "$guard_exit"
+    printf 'ok    %-32s exit=%s\n' "$label" "$guard_exit"
   else
     fail=$((fail + 1))
-    printf 'FAIL  %-32s payload=%s exit=%s (기대 %s / exit 0)\n' \
-      "$label" "$guard_files" "$guard_exit" "$want_files"
+    printf 'FAIL  %-32s exit=%s (기대 %s)\n' "$label" "$guard_exit" "$want"
   fi
 }
 
-expect_guard '관찰-payload기록' 1 '' 'const A = 1;'
-expect_guard 'disable.guard-무동작' 0 '{"disable":{"guard":true}}' 'const A = 1;'
+# 비대칭 임계값 — 새 파일은 넉넉하게, 기존 수정은 빡빡하게
+expect_guard 'Write-249줄-통과'      0 Write "$TMP/a.tsx" 249
+expect_guard 'Write-251줄-반려'      2 Write "$TMP/a.tsx" 251
+expect_guard 'Edit-149줄-통과'       0 Edit  "$TMP/a.tsx" 149
+expect_guard 'Edit-151줄-반려'       2 Edit  "$TMP/a.tsx" 151
 
-# 떠낸 payload 에서 원문이 손실 없이 복원되는가.
-# 훅이 스스로를 검증할 수는 없지만, 파이프를 타는 동안 깨지지 않는지는 볼 수 있다.
-big=$(awk 'BEGIN { for (i = 1; i <= 400; i++) print "const v" i " = " i ";" }')
-run_guard '' "$big"
-restored=$(jq -r '.tool_input.content' "$OBS"/payload-*.json | awk 'END { print NR }')
-logged=$(awk -F'\t' '{ print $3 }' "$OBS/observe.log" | head -1)
-if [ "$restored" = "400" ] && [ "$logged" = "lines=400" ] && [ "$guard_exit" -eq 0 ]; then
+# 설정으로 조정된다
+expect_guard '임계값설정-반려'        2 Write "$TMP/a.tsx" 60  '{"maxNewFileLines":50}'
+expect_guard '임계값설정-통과'        0 Write "$TMP/a.tsx" 40  '{"maxNewFileLines":50}'
+
+# 끌 수 있어야 한다
+expect_guard 'disable.guard-통과'     0 Write "$TMP/a.tsx" 999 '{"disable":{"guard":true}}'
+
+# 코드가 아닌 파일은 분량으로 막지 않는다 — 긴 문서는 정상이다
+expect_guard '마크다운-통과'          0 Write "$TMP/DESIGN.md" 999
+expect_guard 'JSON-통과'             0 Write "$TMP/data.json" 999
+
+# exclude 패턴
+expect_guard 'exclude-stories-통과'   0 Write "$TMP/Button.stories.tsx" 999 \
+  '{"exclude":["**/*.stories.tsx"]}'
+expect_guard 'exclude-깊은경로-통과'  0 Write "$TMP/src/gen/api.ts" 999 \
+  '{"exclude":["src/gen/**"]}'
+expect_guard 'exclude-비대상-반려'    2 Write "$TMP/src/app/api.ts" 999 \
+  '{"exclude":["src/gen/**"]}'
+
+# stderr 는 Claude 가 읽는다. "대신 무엇을 하라"가 반드시 들어가야 한다.
+run_guard Write "$TMP/a.tsx" "$(nlines 300)" ''
+if grep -q '별도 파일로 Write' "$GUARD_ERR" && grep -q '250줄' "$GUARD_ERR" &&
+   ! grep -q 'disable' "$GUARD_ERR"; then
   pass=$((pass + 1))
-  printf 'ok    %-32s 복원=%s줄 기록=%s\n' '관찰-400줄무손실' "$restored" "$logged"
+  printf 'ok    %-32s 대안·임계값 포함, 끄는법 미포함\n' 'stderr-문구'
 else
   fail=$((fail + 1))
-  printf 'FAIL  %-32s 복원=%s줄 기록=%s (기대 400 / lines=400)\n' \
-    '관찰-400줄무손실' "$restored" "$logged"
+  printf 'FAIL  %-32s\n' 'stderr-문구'
+  sed 's/^/      /' "$GUARD_ERR"
+fi
+
+# guidance 는 프로젝트 설정에서만 온다 — 플러그인은 남의 도구를 모른다
+run_guard Write "$TMP/a.tsx" "$(nlines 300)" '{"guidance":"우리 저장소 규칙 먼저 확인"}'
+if grep -q '우리 저장소 규칙 먼저 확인' "$GUARD_ERR"; then
+  pass=$((pass + 1))
+  printf 'ok    %-32s stderr 에 덧붙음\n' 'guidance'
+else
+  fail=$((fail + 1))
+  printf 'FAIL  %-32s guidance 가 안 붙음\n' 'guidance'
+fi
+
+# 관찰 모드는 기본 꺼짐
+OBS=$TMP/observe
+rm -rf "$OBS"
+FE_HARNESS_OBSERVE_DIR=$OBS run_guard Write "$TMP/a.tsx" "$(nlines 10)" ''
+off=$(ls "$OBS"/payload-*.json 2>/dev/null | wc -l | tr -d ' ')
+rm -rf "$OBS"
+FE_HARNESS_OBSERVE_DIR=$OBS run_guard Write "$TMP/a.tsx" "$(nlines 10)" '{"observe":true}'
+on=$(ls "$OBS"/payload-*.json 2>/dev/null | wc -l | tr -d ' ')
+if [ "$off" = "0" ] && [ "$on" = "1" ]; then
+  pass=$((pass + 1))
+  printf 'ok    %-32s 기본=%s observe=%s\n' '관찰모드-플래그' "$off" "$on"
+else
+  fail=$((fail + 1))
+  printf 'FAIL  %-32s 기본=%s observe=%s (기대 0 / 1)\n' '관찰모드-플래그' "$off" "$on"
 fi
 
 printf '\npass=%d fail=%d\n' "$pass" "$fail"

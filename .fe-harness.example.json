@@ -6,6 +6,9 @@
   "maxComponentsPerFile": 2,
   "maxBooleanProps": 2,
 
+  "__extensions": "분량 게이트 대상 확장자. 생략하면 아래가 기본값이다. 문서·설정 파일은 분량으로 막지 않는다.",
+  "extensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "vue", "svelte"],
+
   "exclude": ["**/*.stories.tsx", "**/*.test.tsx", "**/*.spec.tsx", "src/gen/**"],
 
   "format": "",
@@ -15,6 +18,9 @@
 
   "__guidance": "반려 stderr 끝에 그대로 덧붙는 한 줄. 비어 있으면 안 붙는다. 플러그인은 어떤 리뷰 도구가 깔려 있는지 모르므로, 그 지식은 여기에만 둔다.",
   "guidance": "",
+
+  "__observe": "true 로 두면 PreToolUse payload 를 저장소 밖($TMPDIR/fe-harness-observe)에 떠서 남긴다. 훅을 디버깅할 때만 켠다.",
+  "observe": false,
 
   "disable": {
     "guard": false,
