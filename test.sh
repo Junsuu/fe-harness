@@ -351,6 +351,23 @@ else
 fi
 expect_lint 'disable.lint-무동작' 0 '{"lint":"./ng-lint.sh","disable":{"lint":true}}'
 
+# 린터가 아예 못 돈 경우(설정·CLI 오류)를 코드 문제로 보고하면 안 된다.
+# ESLint 는 1 이 lint 문제, 2 가 설정 오류다. 2026-08-18 현업 저장소에서
+# 플래그 하나가 안 맞아 죽은 걸 "린트 문제" 로 보고한 적이 있다.
+printf '#!/usr/bin/env bash\necho "Invalid option --nope"\nexit 2\n' > "$TMP/broken-lint.sh"
+chmod +x "$TMP/broken-lint.sh"
+expect_lint '린터실행실패-무동작' 0 '{"lint":"./broken-lint.sh"}'
+
+# type-aware ESLint 가 tsconfig include 밖의 파일에 내는 에러도 코드 문제가 아니다
+cat > "$TMP/tsconfig-lint.sh" <<'LINT'
+#!/usr/bin/env bash
+echo "  0:0  error  Parsing error: ESLint was configured to run on \`<tsconfigRootDir>/a.tsx\`"
+echo "However, that TSConfig does not include this file."
+exit 1
+LINT
+chmod +x "$TMP/tsconfig-lint.sh"
+expect_lint 'tsconfig불일치-무동작' 0 '{"lint":"./tsconfig-lint.sh"}'
+
 # --- 품질 게이트 (P1-4) --------------------------------------------------
 # 제일 중요한 건 무한 루프 방지다.
 

@@ -55,6 +55,24 @@ fh_disabled() {
   [ "$(fh_cfg "$root" ".disable.$name")" = "true" ]
 }
 
+# 파일이 속한 가장 가까운 패키지 디렉터리. 없으면 root.
+#
+# 모노레포에서 필요하다 (2026-08-18 실측). 루트 .eslintrc.js 가
+# `@repo/eslint-config` 같은 워크스페이스 패키지를 참조하면 루트에서는
+# 해석이 안 돼서 린터가 아예 못 돈다. 파일이 속한 패키지에서 돌려야 한다.
+fh_package_dir() {
+  local root=$1 dir
+  dir=$(dirname "$2")
+  while [ "$dir" != "$root" ] && [ "$dir" != "/" ]; do
+    if [ -f "$dir/package.json" ]; then
+      printf '%s' "$dir"
+      return 0
+    fi
+    dir=$(dirname "$dir")
+  done
+  printf '%s' "$root"
+}
+
 # 게이트 대상 확장자인가. 기본값은 프론트엔드 소스 확장자.
 #
 # 문서·설정·스타일 파일을 분량으로 막지 않는다. 1장의 증상은 전부 컴포넌트
@@ -142,10 +160,14 @@ fh_lint_cmd() {
     return 0
   fi
 
+  # 플래그를 최소한만 쓴다. --no-warn-ignored 는 ESLint 9 flat config 전용이라
+  # eslintrc 를 쓰는 저장소에서 "Invalid option" 으로 죽는다 (2026-08-18 실측).
+  # 버전마다 있는 플래그를 고르느니 아무것도 안 붙이는 쪽이 안전하다.
+  # 추론한 명령은 패키지 디렉터리에서 실행되므로 바이너리를 절대경로로 낸다.
   if _fh_has_eslint_config "$root" && [ -x "$root/node_modules/.bin/eslint" ]; then
-    printf '%s' 'node_modules/.bin/eslint --fix --no-warn-ignored'
+    printf '%s' "$root/node_modules/.bin/eslint --fix"
   elif _fh_has_biome_config "$root" && [ -x "$root/node_modules/.bin/biome" ]; then
-    printf '%s' 'node_modules/.bin/biome check --write'
+    printf '%s' "$root/node_modules/.bin/biome check --write"
   fi
   # 설정 파일이 없으면 추론하지 않는다. 린터 설정이 없는 프로젝트에서
   # 훅이 린터를 대신 만들어줄 수는 없다.

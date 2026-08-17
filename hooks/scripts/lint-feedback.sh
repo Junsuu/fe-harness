@@ -43,12 +43,42 @@ esac
 cmd=$(fh_lint_cmd "$root")
 [ -n "$cmd" ] || exit 0
 
+# 어디서 실행할지 —
+#   설정한 명령  → 프로젝트 루트. `turbo lint` 나 `pnpm lint` 는 루트여야 한다
+#   추론한 명령  → 파일이 속한 패키지. 모노레포에서 루트 eslint 설정이
+#                  워크스페이스 패키지를 참조하면 루트에서는 해석이 안 된다
+if [ -n "$(fh_cfg "$root" '.lint')" ]; then
+  workdir=$root
+else
+  workdir=$(fh_package_dir "$root" "$file")
+fi
+
 # --fix 로 고칠 수 있는 건 고쳐지고, 남은 것만 출력에 남는다.
-output=$( cd "$root" && sh -c "$cmd \"\$1\"" sh "$file" 2>&1 )
+output=$( cd "$workdir" && sh -c "$cmd \"\$1\"" sh "$file" 2>&1 )
 status=$?
 
 [ "$status" -eq 0 ] && exit 0
 [ -n "$output" ] || exit 0
+
+# **exit 1 만 "린트 문제"로 취급한다.**
+# ESLint 는 1 이 lint 문제, 2 가 설정·CLI 오류다. 그 외 코드는 린터가 아예
+# 못 돌았다는 뜻이고, 그걸 코드 문제로 보고하면 Claude 가 존재하지 않는
+# 문제를 고치려 든다 — 훅이 낼 수 있는 최악의 거짓말이다.
+#
+# 실제로 겪었다 (2026-08-18): 플래그 하나가 안 맞아 죽은 걸 "린트 문제"로
+# 보고했다. 확신이 없으면 아무것도 안 하는 게 낫다(6장 3단 폴백의 원칙).
+if [ "$status" -ne 1 ]; then
+  exit 0
+fi
+
+# 설정과 파일이 안 맞아서 나는 에러도 코드 문제가 아니다.
+# type-aware ESLint(`parserOptions.project`)는 tsconfig include 밖의 파일에
+# "ESLint was configured to run on ... TSConfig does not include this file" 을 낸다.
+# Claude 가 include 밖에 파일을 만드는 건 흔한 일이고, 이걸 코드 문제로
+# 보고하면 고칠 수 없는 걸 고치라고 시키는 셈이다 (2026-08-18 실측).
+case $output in
+  *'ESLint was configured to run on'*) exit 0 ;;
+esac
 
 {
   printf 'fe-harness: %s 에 린트 문제가 남았습니다 (자동 수정 후).\n\n' "${file##*/}"
