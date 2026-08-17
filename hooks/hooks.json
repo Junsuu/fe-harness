@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^(Write|Edit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/format.sh",
+            "args": [],
+            "timeout": 60,
+            "statusMessage": "포맷"
+          }
+        ]
+      }
+    ]
+  }
+}

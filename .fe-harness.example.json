@@ -1,0 +1,22 @@
+{
+  "_": "프로젝트 루트에 .fe-harness.json 으로 복사해서 쓴다. 이 파일이 있으면 추론 없이 무조건 신뢰한다.",
+
+  "maxNewFileLines": 250,
+  "maxEditLines": 150,
+  "maxComponentsPerFile": 2,
+  "maxBooleanProps": 2,
+
+  "exclude": ["**/*.stories.tsx", "**/*.test.tsx", "**/*.spec.tsx", "src/gen/**"],
+
+  "format": "",
+  "lint": "",
+  "typecheck": "",
+  "test": "",
+
+  "disable": {
+    "guard": false,
+    "format": false,
+    "warn": false,
+    "gate": false
+  }
+}

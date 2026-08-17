@@ -223,6 +223,7 @@ fe-harness/
 │   ├── hooks.json
 │   └── scripts/
 │       ├── lib-detect.sh    ← 6장, 검증 완료
+│       ├── lib-config.sh    ← 설정 3단 폴백
 │       ├── format.sh        ← P0-1
 │       ├── guard-write.sh   ← P0-2, P0-3 (PreToolUse)
 │       └── warn-write.sh    ← P1-5, P1-6 (PostToolUse)
@@ -237,18 +238,20 @@ fe-harness/
 
 ### hooks.json
 
+최종 형태:
+
 ```json
 {
   "hooks": {
     "PreToolUse": [
-      { "matcher": "Write|Edit",
+      { "matcher": "^(Write|Edit)$",
         "hooks": [{ "type": "command",
                     "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-write.sh",
                     "args": [], "timeout": 30,
                     "statusMessage": "작성 규모 확인" }] }
     ],
     "PostToolUse": [
-      { "matcher": "Write|Edit",
+      { "matcher": "^(Write|Edit)$",
         "hooks": [{ "type": "command",
                     "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/format.sh",
                     "args": [], "timeout": 60,
@@ -263,6 +266,13 @@ fe-harness/
 ```
 
 `"args": []` = 셸을 안 거치고 직접 실행. 쿼팅 사고가 사라진다.
+
+**matcher 를 `^(...)$` 로 감싼다.** 8장의 경고대로 matcher 는 unanchored 라
+`Write|Edit` 는 `NotebookEdit` 에도 걸린다.
+
+**존재하지 않는 스크립트는 등록하지 않는다.** 경로가 틀리면 게이트가 조용히 꺼지고,
+그게 이 프로젝트에서 제일 잡기 어려운 실패다 (8장). 현재 `hooks.json` 에는
+`format.sh` 만 올라가 있고, 나머지는 만들면서 하나씩 추가한다.
 
 ### 설정 파일 — 3단 폴백
 

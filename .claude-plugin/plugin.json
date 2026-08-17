@@ -1,0 +1,12 @@
+{
+  "name": "fe-harness",
+  "description": "코드가 써지는 시점에 개입하는 Claude Code 훅 모음. 변경을 사람이 검토할 수 있는 크기로 유지한다.",
+  "version": "0.1.0",
+  "author": {
+    "name": "tinyhex",
+    "email": "jsp2151@gmail.com"
+  },
+  "license": "MIT",
+  "keywords": ["hooks", "guardrails", "frontend", "code-quality"],
+  "hooks": "./hooks/hooks.json"
+}

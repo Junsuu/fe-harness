@@ -1,0 +1,15 @@
+{
+  "name": "fe-harness",
+  "description": "AI 코딩 세션의 guardrails · verification 레이어. 코드가 써지는 시점에 개입하는 훅 모음.",
+  "owner": {
+    "name": "tinyhex",
+    "email": "jsp2151@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "fe-harness",
+      "source": "./",
+      "description": "코드가 써지는 시점에 개입하는 Claude Code 훅 모음. 변경을 사람이 검토할 수 있는 크기로 유지한다."
+    }
+  ]
+}
