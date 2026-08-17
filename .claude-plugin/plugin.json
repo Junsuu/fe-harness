@@ -7,6 +7,5 @@
     "email": "jsp2151@gmail.com"
   },
   "license": "MIT",
-  "keywords": ["hooks", "guardrails", "frontend", "code-quality"],
-  "hooks": "./hooks/hooks.json"
+  "keywords": ["hooks", "guardrails", "frontend", "code-quality"]
 }

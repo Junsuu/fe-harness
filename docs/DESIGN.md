@@ -555,6 +555,14 @@ P1-5는 폐기됐다(4장).
 
 **`chmod +x`** 안 하면 조용히 실패한다.
 
+**`hooks/hooks.json`은 자동으로 로드된다.** `plugin.json`에 `"hooks":
+"./hooks/hooks.json"`을 또 적으면 중복으로 잡혀 **플러그인 전체가 로드에
+실패한다.** `manifest.hooks`는 표준 위치가 아닌 **추가** 훅 파일에만 쓴다.
+
+**`validate --strict` 통과는 로드 성공을 뜻하지 않는다.** 위 중복 사고는
+validate 를 통과하고도 훅이 하나도 안 붙었다. 매니페스트 스키마 검사와 런타임
+로드는 별개다. 설치 후 반드시 **`claude plugin list`의 `Status`** 를 확인한다.
+
 **경로 오타가 나면 게이트가 조용히 꺼진다.** 첫 실행에서
 `Failed with non-blocking status code`가 없는지 확인할 것.
 
@@ -686,6 +694,7 @@ wc -l <대상 파일>
 - [ ] 현업 저장소에서 **실사용** — 안 쓰는 도구는 만든 게 아니다.
       기간이 아니라 **11장에 조정 기록이 쌓이고 새 마찰이 더 안 나오는 것**이 기준
 - [ ] `claude plugin validate ./fe-harness --strict` 통과
+- [ ] `claude plugin list`의 `Status`가 실패가 아님 — validate 통과와 별개다(7장)
 - [ ] **서로 다른 저장소 2개**에서 동작 확인 (범용성 주장의 근거)
 - [ ] **다른 플러그인이 하나도 없는 환경에서 단독 동작** 확인 — 의존성 없음의 근거
 - [ ] 모든 훅 스크립트 `chmod +x`
