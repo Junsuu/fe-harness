@@ -1,11 +1,12 @@
 ---
-description: 리뷰 → 개선 → 커밋 → push 를 순서대로 돈다. 커밋 직전 품질 루프.
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(git branch:*), Read, Edit, Write, Grep, Glob, Skill, Task
+description: 리뷰 → 개선 → 커밋 → push → PR → 회고. 커밋 직전 품질 루프.
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(git branch:*), Bash(gh pr list:*), Bash(gh pr create:*), Bash(gh pr view:*), Read, Edit, Write, Grep, Glob, Skill, Task
 ---
 
 ## 지금 상태
 
 - 변경: !`git status --short`
+- 열린 PR: !`gh pr list --head "$(git branch --show-current)" --json number,title 2>/dev/null || echo "-"`
 - 브랜치: !`git branch --show-current`
 - 최근 커밋: !`git log --oneline -5`
 
@@ -26,11 +27,17 @@ allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git c
 
 ### 2 · 리뷰
 
-**이 저장소에 설치된 리뷰 도구를 쓴다.** 특정 도구를 지정하지 않는다 —
-사용 가능한 스킬·에이전트 목록에서 코드 품질 리뷰에 해당하는 것을 골라 호출한다.
-(프론트엔드 코드 원칙 스킬, 코드 단순화 에이전트, 내장 코드 리뷰 등)
+**`.fe-harness.json` 의 `review` 에 지정된 도구를 쓴다.**
 
-아무것도 없으면 직접 읽고 검토한다. 볼 것:
+```json
+{ "review": "frontend-fundamentals:reviewer" }
+```
+
+지정돼 있으면 **반드시 그것을 호출한다.** 다른 걸로 대체하지 않는다.
+지정이 없으면 사용 가능한 스킬·에이전트 목록에서 코드 품질 리뷰에 해당하는
+것을 골라 호출한다. 그것도 없으면 직접 읽고 검토한다.
+
+직접 검토할 때 볼 것:
 
 - 한 파일이 너무 많은 책임을 지고 있는가
 - 한 파일에 컴포넌트가 여러 개 선언돼 있는가 — 특히 그 파일 안에서만 쓰는 것
@@ -72,7 +79,28 @@ allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git c
 원격 기본 브랜치에 직접 push 하지 않는다. 현재 브랜치가 기본 브랜치면
 멈추고 사용자에게 확인받는다.
 
-### 6 · 회고 — 루프를 닫는 단계
+### 6 · PR
+
+이미 열린 PR 이 있으면 만들지 않는다. 없으면 사용자에게 물어보고 만든다.
+
+**PR 본문도 커밋 메시지와 같은 원칙이다 — 짧게.**
+
+```
+## 무엇을
+<한두 문장>
+
+## 왜
+<한두 문장. 배경이나 결정 근거>
+
+## 확인한 것
+<어떻게 검증했는지 한 줄>
+```
+
+- **금지**: 변경 파일 목록, 커밋 단위 나열, 단계별 설명, 스크린샷 없는 "테스트 완료"
+- 리뷰어가 30초 안에 "무엇을 왜 했는지" 알 수 있어야 한다
+- 길게 써야 이해되는 PR 이면 PR 이 너무 큰 것이다
+
+### 7 · 회고 — 루프를 닫는 단계
 
 **2단계 리뷰에서 나온 지적을 `.fe-harness/findings.md` 에 한 줄씩 덧붙인다.**
 파일이 없으면 만든다. 형식:
@@ -96,5 +124,5 @@ YYYY-MM-DD  <지적 요약>  <파일>
 ## 원칙
 
 - **단계를 건너뛰지 않는다.** 특히 2단계 리뷰 — 이걸 건너뛰면 이 커맨드를 쓸 이유가 없다
-- **특정 플러그인 이름에 의존하지 않는다.** 설치된 것 중에서 고른다. 없으면 직접 한다
-- **6단계가 이 루프의 이유다.** 매번 같은 지적을 받는다면 루프가 도는 게 아니라 제자리걸음이다
+- **플러그인 코드는 특정 도구 이름을 모른다.** 어떤 리뷰 도구를 쓸지는 `.fe-harness.json` 이 정한다. 지정이 없으면 설치된 것 중에서 고르고, 그것도 없으면 직접 한다
+- **7단계가 이 루프의 이유다.** 매번 같은 지적을 받는다면 루프가 도는 게 아니라 제자리걸음이다
