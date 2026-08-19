@@ -46,15 +46,16 @@ if [ -n "$custom" ]; then
   exit 0
 fi
 
-# 컴포넌트 개수는 더 이상 차단하지 않는다 — 정상 코드의 5~31% 를 막았다.
-# 여기서는 실제로 반려하는 것(분량)만 알린다. 훅이 무엇으로 막을지 미리
-# 아는 게 낫고, 안 막는 것을 막는다고 말하면 그게 곧 거짓말이다.
+# v2 에는 차단하는 훅이 없다. 전부 신호다.
+# 안 막는 것을 막는다고 말하면 그게 곧 거짓말이고, 모델은 그 말을 믿는다.
 new_lines=$(fh_cfg_num "$root" '.signals.maxNewFileLines' 250)
 edit_lines=$(fh_cfg_num "$root" '.signals.maxEditLines' 80)
+components=$(fh_cfg_num "$root" '.signals.maxComponentsPerFile' 1)
 
-printf 'fe-harness 가 켜져 있습니다. 프론트엔드 소스에서 새 파일 Write 는 %s줄, ' "$new_lines"
-printf '한 번의 Edit 는 %s줄까지 받습니다.\n' "$edit_lines"
-printf '막힌 뒤에 쪼개지 말고 처음부터 파일을 나눠서 쓰세요. '
-printf '새 파일을 만드는 쪽이 기존 파일을 불리는 쪽보다 쌉니다.\n'
+printf 'fe-harness 가 켜져 있습니다. 프론트엔드 소스에 대해 새 파일 %s줄, ' "$new_lines"
+printf '한 번의 Edit %s줄, 파일당 컴포넌트 %s개를 넘으면 신호를 냅니다 — 차단은 하지 않습니다.\n' \
+  "$edit_lines" "$components"
+printf '막힌 뒤에 쪼개지 말고 처음부터 나눠서 쓰세요. '
+printf '커밋 전에 /lap 을 부르면 리뷰 · 개선 · 기록까지 한 바퀴 돕니다.\n'
 
 exit 0

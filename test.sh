@@ -104,8 +104,8 @@ expect_format 'disable.format-무동작' 0 '{"verify":{"format":"./fake-fmt.sh"}
 expect_format '프로젝트밖-무동작' 0 '{"verify":{"format":"./fake-fmt.sh"}}' "$TMP.outside.tsx"
 rm -f "$TMP.outside.tsx"
 
-# --- 분량 게이트 (P0-2) --------------------------------------------------
-# 반려는 exit 2 여야 한다. exit 1 은 차단이 아니라 무시된다.
+# --- 분량 신호 -----------------------------------------------------------
+# PostToolUse 라 차단이 아니다. exit 2 는 stderr 를 Claude 에게 보여주는 것.
 
 nlines() { awk -v n="$1" 'BEGIN { for (i = 1; i <= n; i++) print "const v" i " = " i ";" }'; }
 
@@ -121,7 +121,7 @@ run_guard() {
   [ "$tool" = Write ] && key=content || key=new_string
   printf '{"tool_name":"%s","cwd":"%s","tool_input":{"file_path":"%s","%s":%s}}' \
     "$tool" "$TMP" "$target" "$key" "$(printf '%s' "$body" | jq -Rs .)" \
-    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/guard-size.sh" 2> "$GUARD_ERR"
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/warn-size.sh" 2> "$GUARD_ERR"
   guard_exit=$?
 }
 
@@ -139,36 +139,36 @@ expect_guard() {
 }
 
 # 비대칭 임계값 — 새 파일은 넉넉하게, 기존 수정은 빡빡하게
-expect_guard 'Write-249줄-통과'      0 Write "$TMP/a.tsx" 249
-expect_guard 'Write-251줄-반려'      2 Write "$TMP/a.tsx" 251
-expect_guard 'Edit-79줄-통과'        0 Edit  "$TMP/a.tsx" 79
-expect_guard 'Edit-81줄-반려'        2 Edit  "$TMP/a.tsx" 81
+expect_guard 'Write-249줄-무동작'      0 Write "$TMP/a.tsx" 249
+expect_guard 'Write-251줄-경고'      2 Write "$TMP/a.tsx" 251
+expect_guard 'Edit-79줄-무동작'        0 Edit  "$TMP/a.tsx" 79
+expect_guard 'Edit-81줄-경고'        2 Edit  "$TMP/a.tsx" 81
 
 # 설정으로 조정된다
-expect_guard '임계값설정-반려'        2 Write "$TMP/a.tsx" 60  '{"signals":{"maxNewFileLines":50}}'
-expect_guard '임계값설정-통과'        0 Write "$TMP/a.tsx" 40  '{"signals":{"maxNewFileLines":50}}'
+expect_guard '임계값설정-경고'        2 Write "$TMP/a.tsx" 60  '{"signals":{"maxNewFileLines":50}}'
+expect_guard '임계값설정-무동작'        0 Write "$TMP/a.tsx" 40  '{"signals":{"maxNewFileLines":50}}'
 
 # 끌 수 있어야 한다
-expect_guard 'disable.signals-통과'     0 Write "$TMP/a.tsx" 999 '{"disable":{"signals":true}}'
+expect_guard 'disable.signals-무동작'     0 Write "$TMP/a.tsx" 999 '{"disable":{"signals":true}}'
 
 # 코드가 아닌 파일은 분량으로 막지 않는다 — 긴 문서는 정상이다
-expect_guard '마크다운-통과'          0 Write "$TMP/DESIGN.md" 999
-expect_guard 'JSON-통과'             0 Write "$TMP/data.json" 999
+expect_guard '마크다운-무동작'          0 Write "$TMP/DESIGN.md" 999
+expect_guard 'JSON-무동작'             0 Write "$TMP/data.json" 999
 
 # exclude 패턴
-expect_guard 'exclude-stories-통과'   0 Write "$TMP/Button.stories.tsx" 999 \
+expect_guard 'exclude-stories-무동작'   0 Write "$TMP/Button.stories.tsx" 999 \
   '{"exclude":["**/*.stories.tsx"]}'
-expect_guard 'exclude-깊은경로-통과'  0 Write "$TMP/src/gen/api.ts" 999 \
+expect_guard 'exclude-깊은경로-무동작'  0 Write "$TMP/src/gen/api.ts" 999 \
   '{"exclude":["src/gen/**"]}'
-expect_guard 'exclude-비대상-반려'    2 Write "$TMP/src/app/api.ts" 999 \
+expect_guard 'exclude-비대상-경고'    2 Write "$TMP/src/app/api.ts" 999 \
   '{"exclude":["src/gen/**"]}'
 
 # stderr 는 Claude 가 읽는다. "대신 무엇을 하라"가 반드시 들어가야 한다.
 run_guard Write "$TMP/a.tsx" "$(nlines 300)" ''
 if grep -q '별도 파일로 Write' "$GUARD_ERR" && grep -q '250줄' "$GUARD_ERR" &&
-   ! grep -q 'disable' "$GUARD_ERR"; then
+   grep -q '정당하게 긴 파일' "$GUARD_ERR" && ! grep -q 'disable' "$GUARD_ERR"; then
   pass=$((pass + 1))
-  printf 'ok    %-32s 대안·임계값 포함, 끄는법 미포함\n' 'stderr-문구'
+  printf 'ok    %-32s 대안·예외안내 포함, 끄는법 미포함\n' 'stderr-문구'
 else
   fail=$((fail + 1))
   printf 'FAIL  %-32s\n' 'stderr-문구'
@@ -393,15 +393,16 @@ else
   fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-기본문구' "$out"
 fi
 
-# 안 막는 것을 막는다고 말하면 그게 거짓말이다 — 컴포넌트 차단은 폐기됐다
-if printf '%s' "$out" | grep -q '컴포넌트'; then
-  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-컴포넌트언급없음' "$out"
+# v2 에는 차단하는 훅이 없다. 막는다고 말하면 그게 거짓말이고 모델은 믿는다.
+if printf '%s' "$out" | grep -qE '반려|차단은 하지' && printf '%s' "$out" | grep -q '신호'; then
+  pass=$((pass + 1)); printf 'ok    %-32s 차단 아님을 명시\n' '주입-차단주장없음'
 else
-  pass=$((pass + 1)); printf 'ok    %-32s 폐기된 게이트를 안 알림\n' '주입-컴포넌트언급없음'
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-차단주장없음' "$out"
 fi
 
-out=$(run_inject '{"signals":{"maxNewFileLines":120,"maxEditLines":40}}')
-if printf '%s' "$out" | grep -q '120줄' && printf '%s' "$out" | grep -q '40줄'; then
+out=$(run_inject '{"signals":{"maxNewFileLines":120,"maxEditLines":40,"maxComponentsPerFile":3}}')
+if printf '%s' "$out" | grep -q '120줄' && printf '%s' "$out" | grep -q '40줄' &&
+   printf '%s' "$out" | grep -q '3개'; then
   pass=$((pass + 1)); printf 'ok    %-32s 설정을 반영\n' '주입-설정반영'
 else
   fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-설정반영' "$out"
