@@ -493,6 +493,11 @@ expect_scan 'verify-full-절대값'       '전체 3건' full
 ( cd "$VTMP" && git rm -q dup-2.txt dup-3.txt && git commit -qm less ) >/dev/null 2>&1
 expect_scan 'verify-감소-보고'         '(-2)' delta
 
+# 커밋 직전에는 기준이 HEAD 여야 한다. HEAD~1 을 쓰면 직전 커밋의 변경까지
+# 합산돼 이번 변경이 늘리지 않은 것을 이번 탓으로 보고한다.
+( cd "$VTMP" && touch dup-9.txt ) >/dev/null 2>&1
+expect_scan 'verify-기준HEAD-이번변경만' '(+1)' delta HEAD
+
 # 도구가 죽었을 때 0건으로 보고하면 그게 거짓말이다
 vcfg '{"verify":{"duplication":"./nope.sh"}}'
 expect_scan 'verify-도구실패-정직'     '재지 못했습니다' full

@@ -73,10 +73,15 @@ allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git c
 중복·죽은 코드는 **스크립트가 잰다.** 직접 명령을 조립하지 않는다:
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-scan.sh delta
+${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-scan.sh delta HEAD
 ```
 
-이전 커밋 대비 **증감만** 낸다. 변화가 없거나 잴 수 없으면 아무것도 출력하지
+**기준을 `HEAD` 로 명시한다.** 이 루프는 커밋 **직전**에 돌므로 비교 대상은
+마지막 커밋이다. 스크립트 기본값 `HEAD~1` 을 그대로 쓰면 직전 커밋의 변경까지
+합산돼 **이번 변경이 늘리지 않은 중복을 이번 탓으로 보고한다.**
+(커밋 훅은 커밋이 끝난 뒤 돌기 때문에 거기서는 기본값이 맞다.)
+
+마지막 커밋 대비 **증감만** 낸다. 변화가 없거나 잴 수 없으면 아무것도 출력하지
 않는다 — 기존 저장소에 이미 중복이 200건이면 그 숫자는 행동으로 옮길 수 없다.
 
 `verify.typecheck` · `verify.test` 는 설정돼 있으면 그대로 돌린다.
