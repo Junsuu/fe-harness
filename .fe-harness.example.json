@@ -61,12 +61,6 @@
     "a11yRuntime": ""
   },
 
-  "__trigger": "루프를 무엇이 깨우는가. commit=내부 루프(빠르고 델타), push=외부 루프(비싸고 전체).",
-  "trigger": {
-    "commit": true,
-    "push": true
-  },
-
   "__extensions": "분량·컴포넌트·린트 검사의 대상 확장자. 생략하면 아래가 기본값이다. 문서·설정 파일은 보지 않는다.",
   "extensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "vue", "svelte"],
 
@@ -99,7 +93,6 @@
     "lint": false,
     "gate": false,
     "verify": false,
-    "signals": false,
-    "loop": false
+    "signals": false
   }
 }
