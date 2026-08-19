@@ -499,5 +499,53 @@ expect_scan 'verify-도구실패-정직'     '재지 못했습니다' full
 vcfg '{"verify":{"duplication":"./count.sh"},"disable":{"verify":true}}'
 expect_scan 'disable.verify-무동작'    '' full
 
+# --- learn (findings 누적 · 승격) ----------------------------------------
+# 형식이 흔들리면 카운트가 깨지고, 카운트가 깨지면 루프가 닫히지 않는다.
+
+FTMP=$TMP/findings-repo
+mkdir -p "$FTMP"
+( cd "$FTMP" && git init -q . && git config user.email t@t && git config user.name t \
+  && touch x && git add -A && git commit -qm base ) >/dev/null 2>&1
+
+fnd() { CLAUDE_PROJECT_DIR="$FTMP" bash "$ROOT/hooks/scripts/findings.sh" "$@" 2>&1; }
+
+expect_fnd() {
+  local label=$1 want=$2 out
+  shift 2
+  out=$(fnd "$@")
+  if { [ -n "$want" ] && printf '%s' "$out" | grep -q -- "$want"; } ||
+     { [ -z "$want" ] && [ -z "$out" ]; }; then
+    pass=$((pass + 1)); printf 'ok    %-32s\n' "$label"
+  else
+    fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' "$label" "${out:-(빈 출력)}"
+  fi
+}
+
+# 카테고리를 고정하지 않으면 "같은 종류 3회"를 셀 수 없다
+expect_fnd 'findings-잘못된카테고리'  '알 수 없는 카테고리' add nonsense "뭔가"
+
+fnd add readability "중첩 삼항" src/A.tsx 반영 >/dev/null
+fnd add readability "이름 불일치" src/B.tsx 미룸:범위밖 >/dev/null
+expect_fnd 'findings-2회-조용'        '' count
+
+fnd add readability "매직 넘버" src/C.tsx - >/dev/null
+expect_fnd 'findings-3회-승격제안'    'readability — 3회' count
+expect_fnd 'findings-승격경로안내'    'hookify' count
+
+# 탭이 섞이면 필드가 밀린다
+fnd add naming "탭	포함	요약" src/D.tsx - >/dev/null
+n=$(fnd recent 20 | awk -F'\t' 'NF==7' | wc -l | tr -d ' ')
+t=$(fnd recent 20 | wc -l | tr -d ' ')
+if [ "$n" = "$t" ]; then
+  pass=$((pass + 1)); printf 'ok    %-32s 전 줄 7칸 유지\n' 'findings-탭정규화'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s %s/%s\n' 'findings-탭정규화' "$n" "$t"
+fi
+
+# 한 번 승격한 것을 계속 물으면 사용자는 끈다
+sed -i '' 's/	-$/	승격:hookify/' "$FTMP/.fe-harness/findings.md" 2>/dev/null ||
+  sed -i 's/\t-$/\t승격:hookify/' "$FTMP/.fe-harness/findings.md"
+expect_fnd 'findings-승격후-재제안없음' '' count
+
 printf '\npass=%d fail=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

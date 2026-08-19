@@ -1,7 +1,7 @@
 ---
 description: 품질 루프를 한 바퀴 돈다. 커밋 직전(기본) 또는 푸시 직전(push).
 argument-hint: "[push]  — 생략하면 커밋 직전 루프"
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(gh pr list:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(npx:*), Bash(cat:*), Bash(ls:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-scan.sh:*), Read, Edit, Write, Grep, Glob, Skill, Task
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(gh pr list:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(npx:*), Bash(cat:*), Bash(ls:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-scan.sh:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/scripts/findings.sh:*), Read, Edit, Write, Grep, Glob, Skill, Task
 ---
 
 ## 지금 상태
@@ -134,11 +134,17 @@ CI 와도 일치하고, 프로젝트가 룰을 조정할 수 있다. 사용자�
 
 ### 6 · learn — 누적만
 
-2·3단계 지적을 `.fe-harness/findings.md` 에 한 줄씩 덧붙인다. 파일이 없으면 만든다.
+2·3단계 지적을 **스크립트로** 덧붙인다. 손으로 쓰지 않는다 — 형식이 흔들리면
+카운트가 깨지고, 카운트가 깨지면 승격 제안이 안 나와 루프가 닫히지 않는다.
 
+```bash
+${CLAUDE_PLUGIN_ROOT}/hooks/scripts/findings.sh add <카테고리> "<요약>" <파일> <처리>
 ```
-YYYY-MM-DD  <커밋 SHA>  <verify|review>  <지적 요약>  <파일>  <반영|미룸:이유>
-```
+
+- **카테고리는 고정 목록에서 고른다** — `cohesion` `coupling` `predictability`
+  `readability` `duplication` `deadcode` `a11y` `naming` `other`.
+  "같은 종류"를 자연어로 판단하면 그때그때 달라진다. **필드 일치로 만들어야 센다**
+- 처리는 `반영` 또는 `미룸:<이유>`. 미룰 거면 **왜 미루는지 반드시 남긴다**
 
 **승격 제안은 여기서 하지 않는다.** 매 커밋마다 물으면 성가시다. 외부 루프 몫이다.
 
@@ -203,18 +209,19 @@ YYYY-MM-DD  <커밋 SHA>  <verify|review>  <지적 요약>  <파일>  <반영|�
 
 **여기가 루프를 닫는 곳이다.**
 
-`.fe-harness/findings.md` 를 읽어 **같은 종류의 지적이 3회 이상** 반복됐는지 본다.
-반복됐다면 매번 지적할 게 아니라 규칙이 되어야 한다는 뜻이다.
-
-승격 경로는 지적의 성격이 정한다:
-
-```
-기계적으로 판정 가능   → hookify 규칙 (block / warn)
-판단이 필요한 지침     → CLAUDE.md
-이 저장소만의 맥락     → .fe-harness.json 의 guidance 한 줄
+```bash
+${CLAUDE_PLUGIN_ROOT}/hooks/scripts/findings.sh count
 ```
 
-`roles.learn` 에 지정된 도구로 만든다. 지정이 없으면 `hookify` 를 쓴다.
+같은 카테고리가 **3회 이상** 쌓였으면 승격 후보로 나온다. 아무것도 안 나오면
+넘어간다 — 억지로 승격시키지 않는다.
+
+후보가 있으면 `roles.learn` 에 지정된 도구(기본 `hookify`)로 규칙을 만들되,
+**승격 경로는 지적의 성격이 정한다** — 스크립트 출력에 함께 나온다.
+
+승격한 항목은 `findings.md` 의 처리 칸을 `승격:<수단>` 으로 바꾼다.
+**그래야 다음 루프에서 다시 세지 않는다.** 한 번 제안하고 사용자가 미뤘는데
+매번 다시 물으면 결국 끄게 된다.
 
 **제안만 한다. 사용자 확인 없이 규칙을 추가하지 않는다.**
 
