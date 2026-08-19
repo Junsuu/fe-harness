@@ -1,11 +1,16 @@
 {
   "name": "fe-harness",
-  "description": "코드가 써지는 시점에 개입하는 Claude Code 훅 모음. 변경을 사람이 검토할 수 있는 크기로 유지한다.",
-  "version": "0.1.0",
+  "description": "FE 코드 품질 루프. 조각을 만들지 않고 역할로 루프를 정의한다. 역할에 어떤 도구를 끼울지는 .fe-harness.json 이 정한다.",
+  "version": "0.2.0",
   "author": {
     "name": "tinyhex",
     "email": "jsp2151@gmail.com"
   },
   "license": "MIT",
-  "keywords": ["hooks", "guardrails", "frontend", "code-quality"]
+  "keywords": ["hooks", "guardrails", "frontend", "code-quality", "review-loop"],
+  "dependencies": [
+    { "name": "frontend-fundamentals", "marketplace": "toss" },
+    { "name": "hookify", "marketplace": "claude-plugins-official" },
+    { "name": "commit-commands", "marketplace": "claude-plugins-official" }
+  ]
 }
