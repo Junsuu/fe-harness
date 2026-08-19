@@ -446,5 +446,58 @@ else
   fail=$((fail + 1)); printf 'FAIL  %-32s %s줄 — 길면 스킬로 가야 한다\n' '주입-분량' "$lines"
 fi
 
+# --- verify 확장 (중복·죽은 코드) ---------------------------------------
+# 델타는 "이번 변경이 늘렸는가"만 본다. 못 재면 조용히 넘어간다 —
+# 절대값은 행동으로 옮길 수 없어서 애초에 델타를 택했다.
+
+VTMP=$TMP/verify-repo
+mkdir -p "$VTMP"
+(
+  cd "$VTMP" || exit 1
+  git init -q . && git config user.email t@t && git config user.name t
+  cat > count.sh <<'CNT'
+#!/usr/bin/env bash
+printf '{"statistics":{"total":{"clones":%s}}}\n' "$(ls dup-*.txt 2>/dev/null | wc -l | tr -d ' ')"
+CNT
+  chmod +x count.sh
+  touch dup-1.txt && git add -A && git commit -qm base
+) >/dev/null 2>&1
+
+vcfg() { printf '%s\n' "$1" > "$VTMP/.fe-harness.json"; }
+vscan() { CLAUDE_PROJECT_DIR="$VTMP" bash "$ROOT/hooks/scripts/verify-scan.sh" "$@" 2>/dev/null; }
+
+expect_scan() {
+  local label=$1 want=$2 out
+  shift 2
+  out=$(vscan "$@")
+  if { [ -n "$want" ] && printf '%s' "$out" | grep -q -- "$want"; } ||
+     { [ -z "$want" ] && [ -z "$out" ]; }; then
+    pass=$((pass + 1)); printf 'ok    %-32s\n' "$label"
+  else
+    fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' "$label" "${out:-(빈 출력)}"
+  fi
+}
+
+vcfg '{}'
+expect_scan 'verify-설정없음-무동작'   '' delta
+
+vcfg '{"verify":{"duplication":"./count.sh"}}'
+# 첫 커밋이라 비교 대상이 없다 → 절대값을 대신 내면 안 된다
+expect_scan 'verify-비교불가-조용'     '' delta
+
+( cd "$VTMP" && touch dup-2.txt dup-3.txt && git add -A && git commit -qm more ) >/dev/null 2>&1
+expect_scan 'verify-증가-보고'         '(+2)' delta
+expect_scan 'verify-full-절대값'       '전체 3건' full
+
+( cd "$VTMP" && git rm -q dup-2.txt dup-3.txt && git commit -qm less ) >/dev/null 2>&1
+expect_scan 'verify-감소-보고'         '(-2)' delta
+
+# 도구가 죽었을 때 0건으로 보고하면 그게 거짓말이다
+vcfg '{"verify":{"duplication":"./nope.sh"}}'
+expect_scan 'verify-도구실패-정직'     '재지 못했습니다' full
+
+vcfg '{"verify":{"duplication":"./count.sh"},"disable":{"verify":true}}'
+expect_scan 'disable.verify-무동작'    '' full
+
 printf '\npass=%d fail=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

@@ -43,7 +43,11 @@
     "typecheck": "",
     "test": "",
 
-    "__duplication": "내부 루프는 델타(이번 커밋의 증감), 외부 루프는 전체 스캔으로 쓴다.",
+    "__duplication": [
+      "복붙 블록. JSON 을 내는 명령이어야 한다. 예: npx jscpd --min-lines 8 --reporters json --silent",
+      "내부 루프는 이전 커밋 대비 델타(증감)만 알린다 — 기존 저장소에 이미 200건이면",
+      "절대값은 행동으로 옮길 수 없다. 외부 루프는 전체 스캔으로 절대값을 낸다."
+    ],
     "duplication": "",
 
     "__deadcode": "미사용 파일·export·의존성. 예: npx knip --reporter json",
@@ -94,6 +98,7 @@
     "format": false,
     "lint": false,
     "gate": false,
+    "verify": false,
     "signals": false,
     "loop": false
   }

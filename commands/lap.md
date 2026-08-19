@@ -1,7 +1,7 @@
 ---
 description: 품질 루프를 한 바퀴 돈다. 커밋 직전(기본) 또는 푸시 직전(push).
 argument-hint: "[push]  — 생략하면 커밋 직전 루프"
-allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(gh pr list:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(npx:*), Bash(cat:*), Bash(ls:*), Read, Edit, Write, Grep, Glob, Skill, Task
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(gh pr list:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(npx:*), Bash(cat:*), Bash(ls:*), Bash(${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-scan.sh:*), Read, Edit, Write, Grep, Glob, Skill, Task
 ---
 
 ## 지금 상태
@@ -70,13 +70,18 @@ allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git c
 
 ### 2 · verify — 결정적 검사
 
-`.fe-harness.json` 의 `verify` 에 **명시된 것만** 돈다. 추론하지 않는다.
+중복·죽은 코드는 **스크립트가 잰다.** 직접 명령을 조립하지 않는다:
 
-- `verify.duplication` — 이번 변경이 중복을 **늘렸는지** 본다. 절대 수치가 아니라 델타다
-- `verify.deadcode` — 이번 변경이 죽은 코드를 남겼는지
-- `verify.typecheck` · `verify.test` — 설정돼 있으면
+```bash
+${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-scan.sh delta
+```
 
-**비어 있으면 조용히 건너뛴다.** 없는 명령을 추측해서 돌리지 않는다.
+이전 커밋 대비 **증감만** 낸다. 변화가 없거나 잴 수 없으면 아무것도 출력하지
+않는다 — 기존 저장소에 이미 중복이 200건이면 그 숫자는 행동으로 옮길 수 없다.
+
+`verify.typecheck` · `verify.test` 는 설정돼 있으면 그대로 돌린다.
+
+**`verify` 가 비어 있으면 조용히 건너뛴다.** 없는 명령을 추측해서 돌리지 않는다.
 
 **a11y 정적 점검** — 이 저장소에 JSX 가 있는데 ESLint 설정에
 `eslint-plugin-jsx-a11y` 가 없으면 **한 번만** 이렇게 제안한다:
@@ -148,9 +153,10 @@ YYYY-MM-DD  <커밋 SHA>  <verify|review>  <지적 요약>  <파일>  <반영|�
 
 ### 2 · verify — 전체 스캔
 
-- **`verify.duplication` · `verify.deadcode` 를 전체 스캔으로** 돌린다.
+- **전체 스캔** — `${CLAUDE_PLUGIN_ROOT}/hooks/scripts/verify-scan.sh full`
   델타 검사는 커밋 A 와 커밋 C 사이에 생긴 중복을 못 본다 — 각 커밋 시점에는
-  증가가 없기 때문이다. **여기서만 잡힌다**
+  증가가 없기 때문이다. **여기서만 잡힌다.** 설정이 잘못돼 도구가 안 돌고
+  있었다면 그것도 여기서 드러난다
 - **`verify.a11yRuntime`** — 명시돼 있으면 돌린다. **비어 있으면 건너뛴다.**
   렌더 수단이 없다고 스토리북이나 E2E 를 만들라고 요구하지 않는다
 
