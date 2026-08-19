@@ -66,10 +66,21 @@ diff는 사람이 검토할 수 없다.
 
 ## 설치
 
+fe-harness 는 **조각을 만들지 않고 이미 있는 도구를 역할에 끼운다.** 그래서
+끼울 도구들이 사는 마켓플레이스를 **먼저** 등록해야 한다. 등록하지 않으면
+의존성이 해결되지 않아 `dependency-unsatisfied` 로 플러그인이 비활성화된다.
+
 ```bash
+# 1. 의존 마켓플레이스 (먼저)
+claude plugin marketplace add toss/frontend-fundamentals
+claude plugin marketplace add anthropics/claude-plugins-official
+
+# 2. fe-harness
 claude plugin marketplace add <이 저장소 경로 또는 URL>
 claude plugin install fe-harness@fe-harness
 ```
+
+의존 플러그인은 **자동으로 함께 설치된다.** 직접 설치할 필요는 없다.
 
 설치 후 **반드시 확인한다**:
 
@@ -79,6 +90,32 @@ claude plugin list      # Status 가 실패가 아닌지
 
 `claude plugin validate --strict` 통과와 로드 성공은 별개다. 매니페스트가
 멀쩡해도 훅이 하나도 안 붙어 있을 수 있다.
+
+### 무엇을 요구하는가
+
+| 플러그인 | 역할 | 무엇을 하나 |
+| --- | --- | --- |
+| `frontend-fundamentals@toss` | **review** · **guide** | 응집도·결합도·예측가능성·가독성 리뷰 기준 |
+| `hookify@claude-plugins-official` | **learn** | 반복된 지적을 규칙으로 승격 |
+| `commit-commands@claude-plugins-official` | **record** | 커밋·PR 워크플로 |
+
+**기본 설정이 이름을 부르는 것은 전부 필수다.** 하나라도 없으면 fe-harness 가
+비활성화된다 — 기본값이 부르는데 없으면 그 역할이 조용히 비고, 그건 도는 척하는
+것이기 때문이다.
+
+`refine` 역할은 Claude Code 내장 `simplify` 를 쓰므로 설치할 것이 없다.
+
+### 쓰는 법
+
+```
+/lap           커밋 직전 — 빠른 내부 루프 (이 커밋의 diff 만)
+/lap push      푸시 직전 — 비싼 외부 루프 (브랜치 전체)
+```
+
+**한 바퀴가 한 번의 개선이다.** 내부 루프는 이번 변경만 보고 빠르게 돌고,
+외부 루프는 브랜치 전체를 보며 커밋 사이에 생긴 문제와 반복된 지적을 잡는다.
+지적은 `.fe-harness/findings.md` 에 쌓이고, **같은 지적이 3회 반복되면 규칙으로
+승격을 제안**한다 — 그게 루프가 도는 증거다.
 
 ## 설정
 
