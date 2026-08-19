@@ -47,7 +47,7 @@ cmd=$(fh_lint_cmd "$root")
 #   설정한 명령  → 프로젝트 루트. `turbo lint` 나 `pnpm lint` 는 루트여야 한다
 #   추론한 명령  → 파일이 속한 패키지. 모노레포에서 루트 eslint 설정이
 #                  워크스페이스 패키지를 참조하면 루트에서는 해석이 안 된다
-if [ -n "$(fh_cfg "$root" '.lint')" ]; then
+if [ -n "$(fh_cfg "$root" '.verify.lint')" ]; then
   workdir=$root
 else
   workdir=$(fh_package_dir "$root" "$file")

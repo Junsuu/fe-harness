@@ -36,7 +36,7 @@ tool=$(_field '.tool_name')
 file=$(_field '.tool_input.file_path')
 root=$(fh_root "$(_field '.cwd')")
 
-fh_disabled "$root" guard && exit 0
+fh_disabled "$root" signals && exit 0
 
 # 관찰 모드 — 기본 꺼짐. payload 를 저장소 밖에 떠서 디버깅에 쓴다 (8장).
 if [ "$(fh_cfg "$root" '.observe')" = "true" ]; then
@@ -53,11 +53,11 @@ fh_excluded "$root" "$file" && exit 0
 case $tool in
   Write)
     body=$(_field '.tool_input.content')
-    limit=$(fh_cfg_num "$root" '.maxNewFileLines' 250)
+    limit=$(fh_cfg_num "$root" '.signals.maxNewFileLines' 250)
     ;;
   Edit)
     body=$(_field '.tool_input.new_string')
-    limit=$(fh_cfg_num "$root" '.maxEditLines' 80)
+    limit=$(fh_cfg_num "$root" '.signals.maxEditLines' 80)
     ;;
   *)
     exit 0

@@ -1,46 +1,100 @@
 {
   "_": "프로젝트 루트에 .fe-harness.json 으로 복사해서 쓴다. 이 파일이 있으면 추론 없이 무조건 신뢰한다.",
 
-  "maxNewFileLines": 250,
-  "__maxEditLines": "한 번의 Edit 에 추가되는 줄 수. 실측 p95 는 저장소별 38~72 였다 (2026-08-18, 저장소 5개 · 수정 24,976건).",
-  "maxEditLines": 80,
+  "__roles": [
+    "루프의 각 역할에 어떤 도구를 끼울지. 해석은 모델이 한다 — 훅(셸)은 이 값이",
+    "에이전트인지 스킬인지 모르고, /lap 을 읽는 모델이 정한다.",
+    "",
+    "값 문법:",
+    "  \"이름\"      그대로 부른다. plugin:agent · plugin:skill · skill · /command 전부 가능",
+    "  [\"a\",\"b\"]  여럿. review 만 병렬, 나머지는 순서대로",
+    "  \"\"          그 역할 끄기",
+    "  키 없음     추론한다. 실패하면 조용히 통과"
+  ],
+  "roles": {
+    "__guide": "작성 전 컨텍스트에 넣을 지침. 스킬 본문이 아니라 '이걸 먼저 보라'는 포인터다.",
+    "guide": ["frontend-fundamentals:readability", "frontend-fundamentals:cohesion"],
 
-  "__maxComponentsPerFile": "허용 최대 개수다. 기본 1 — 한 파일에 컴포넌트가 2개 이상이면 반려한다. 늘리려면 2 이상으로.",
-  "maxComponentsPerFile": 1,
+    "__review": "판단이 필요한 리뷰. 필수 역할이다. a11y-semantics 가 생기면 배열에 추가한다.",
+    "review": "frontend-fundamentals:reviewer",
 
-  "__extensions": "분량·컴포넌트·린트 훅의 대상 확장자. 생략하면 아래가 기본값이다. 문서·설정 파일은 막지 않는다.",
+    "__refine": "지적을 수정안으로 옮긴다. 적용은 사람이 결정한다.",
+    "refine": "simplify",
+
+    "__record": "커밋·PR 문구. 비우면 /lap 5단계의 형식 규정대로 직접 쓴다.",
+    "record": "commit-commands:commit",
+
+    "__learn": "반복된 지적을 규칙으로 승격. 필수 역할이다.",
+    "learn": "hookify"
+  },
+
+  "__verify": [
+    "결정적 검증. 셀 수 있고 '틀렸다'고 단정할 수 있는 것만 여기 온다.",
+    "typecheck·test 는 추론하지 않는다 — 차단하는 검사가 확신 없이 추론한 명령으로",
+    "개발을 막으면 안 되고, 추론한 test 가 몇 분짜리일 수도 있다."
+  ],
+  "verify": {
+    "__format": "비우면 prettier / biome 를 추론한다. 못 찾으면 아무것도 안 한다.",
+    "format": "",
+
+    "__lint": "비우면 eslint / biome 를 추론한다. 린터 설정 파일이 없으면 추론하지 않는다.",
+    "lint": "",
+
+    "typecheck": "",
+    "test": "",
+
+    "__duplication": "내부 루프는 델타(이번 커밋의 증감), 외부 루프는 전체 스캔으로 쓴다.",
+    "duplication": "",
+
+    "__deadcode": "미사용 파일·export·의존성. 예: npx knip --reporter json",
+    "deadcode": "",
+
+    "__a11yRuntime": [
+      "외부 루프(push) 전용. 저장소가 이미 가진 렌더 수단을 여기 적는다.",
+      "우선순위: E2E 안의 axe > 컴포넌트 테스트 안의 axe > Storybook > 라우트 목록.",
+      "비우면 건너뛴다 — 렌더 수단이 없다고 새로 만들라고 요구하지 않는다."
+    ],
+    "a11yRuntime": ""
+  },
+
+  "__trigger": "루프를 무엇이 깨우는가. commit=내부 루프(빠르고 델타), push=외부 루프(비싸고 전체).",
+  "trigger": {
+    "commit": true,
+    "push": true
+  },
+
+  "__extensions": "분량·컴포넌트·린트 검사의 대상 확장자. 생략하면 아래가 기본값이다. 문서·설정 파일은 보지 않는다.",
   "extensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "vue", "svelte"],
 
   "exclude": ["**/*.stories.tsx", "**/*.test.tsx", "**/*.spec.tsx", "src/gen/**"],
 
-  "__format": "비우면 prettier / biome 를 추론한다. 못 찾으면 아무것도 안 한다.",
-  "format": "",
+  "__signals": [
+    "차단하지 않는 신호. 넘으면 findings 에 남기고 리뷰가 판단한다.",
+    "'셀 수 있는가'가 아니라 '틀렸는가'로 가른다 — 컴포넌트 개수는 셀 수 있지만",
+    "그 개수가 문제인지는 읽어야 안다(실측: 정상 .tsx 의 5~31% 가 2개 이상)."
+  ],
+  "signals": {
+    "maxNewFileLines": 250,
+    "maxEditLines": 80,
+    "maxComponentsPerFile": 1
+  },
 
-  "__lint": "비우면 eslint / biome 를 추론한다. 린터 설정 파일이 없으면 추론하지 않는다.",
-  "lint": "",
-
-  "__typecheck": "Stop 게이트는 추론하지 않는다. 여기에 명시했을 때만 돈다 — 차단하는 훅이라 확신 없는 추론으로 개발을 막으면 안 된다.",
-  "typecheck": "",
-  "test": "",
-
-  "__inject": "세션 시작 시 컨텍스트에 넣을 한 줄. 비우면 실제 임계값을 알려주는 기본 문구가 들어간다. 길게 쓰지 말 것 — 매 세션 컨텍스트를 먹는다.",
+  "__inject": "세션 시작 시 컨텍스트에 넣을 한 줄. 비우면 기본 문구가 들어간다. 길게 쓰지 말 것 — 매 세션 컨텍스트를 먹는다.",
   "inject": "",
 
-  "__review": "/ship 2단계에서 호출할 리뷰 도구. 지정하면 반드시 그것을 쓴다. 비우면 설치된 것 중에서 고른다. 예: frontend-fundamentals:reviewer",
-  "review": "",
-
-  "__guidance": "반려 stderr 끝에 그대로 덧붙는 한 줄. 비어 있으면 안 붙는다. 플러그인은 어떤 리뷰 도구가 깔려 있는지 모르므로, 그 지식은 여기에만 둔다.",
+  "__guidance": "리뷰·신호 메시지 끝에 그대로 덧붙는 한 줄. 비어 있으면 안 붙는다. 이 저장소만의 맥락을 여기 둔다.",
   "guidance": "",
 
-  "__observe": "true 로 두면 PreToolUse payload 를 저장소 밖($TMPDIR/fe-harness-observe)에 떠서 남긴다. 훅을 디버깅할 때만 켠다.",
+  "__observe": "true 로 두면 훅 payload 를 저장소 밖($TMPDIR/fe-harness-observe)에 남긴다. 훅을 디버깅할 때만 켠다.",
   "observe": false,
 
+  "__disable": "끌 방법이 없는 도구는 삭제된다. 반드시 남겨둔다.",
   "disable": {
-    "guard": false,
+    "guide": false,
     "format": false,
-    "warn": false,
     "lint": false,
     "gate": false,
-    "inject": false
+    "signals": false,
+    "loop": false
   }
 }

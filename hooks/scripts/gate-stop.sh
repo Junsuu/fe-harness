@@ -35,8 +35,8 @@ _field() { printf '%s' "$payload" | jq -r "$1 // empty" 2>/dev/null; }
 root=$(fh_root "$(_field '.cwd')")
 fh_disabled "$root" gate && exit 0
 
-typecheck=$(fh_cfg "$root" '.typecheck')
-test_cmd=$(fh_cfg "$root" '.test')
+typecheck=$(fh_cfg "$root" '.verify.typecheck')
+test_cmd=$(fh_cfg "$root" '.verify.test')
 [ -n "$typecheck$test_cmd" ] || exit 0
 
 # 작업 트리에 변경이 없으면 검사할 것도 없다.

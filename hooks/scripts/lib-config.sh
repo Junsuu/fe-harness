@@ -23,7 +23,10 @@ fh_root() {
 }
 
 # .fe-harness.json 의 키를 읽는다. 없으면 빈 문자열.
-# 사용: fh_cfg <root> <jq 경로>   예) fh_cfg "$root" '.format'
+# 사용: fh_cfg <root> <jq 경로>   예) fh_cfg "$root" '.verify.lint'
+#
+# 0.1.x 평면 스키마는 읽지 않는다. 대신 fh_legacy_keys 가 감지해서 알린다 —
+# 폴백을 영구히 들고 다니는 것보다 한 번 옮기게 하는 쪽이 낫다.
 fh_cfg() {
   local root=$1 path=$2 file=$1/.fe-harness.json
   [ -f "$file" ] || return 0
@@ -39,6 +42,22 @@ fh_cfg_num() {
     '' | *[!0-9]*) printf '%s' "$default" ;;
     *) printf '%s' "$value" ;;
   esac
+}
+
+# 0.1.x 평면 스키마 키가 남아 있으면 그 이름들을 출력한다. 없으면 아무것도.
+#
+# 스키마를 verify.* / signals.* 로 묶으면서 옛 키는 읽지 않기로 했다.
+# 그런데 **설정이 조용히 무시되는 것은 에러보다 나쁘다** — 사용자는 자기 설정이
+# 도는 줄 안다. 읽지 않을 거라면 읽지 않는다고 말해야 한다.
+fh_legacy_keys() {
+  local file=$1/.fe-harness.json
+  [ -f "$file" ] || return 0
+  jq -r '
+    [ "format","lint","typecheck","test",
+      "maxNewFileLines","maxEditLines","maxComponentsPerFile" ]
+    | map(select(. as $k | $ARGS.named.cfg | has($k)))
+    | join(", ")
+  ' --argjson cfg "$(cat "$file")" -n 2>/dev/null
 }
 
 # 배열 설정을 줄 단위로. 없으면 아무것도 출력하지 않는다.
@@ -128,7 +147,7 @@ _fh_glob_match() {
 # 반환하는 명령은 대상 파일 경로 하나를 인자로 덧붙여 실행된다.
 fh_format_cmd() {
   local root=$1 configured
-  configured=$(fh_cfg "$root" '.format')
+  configured=$(fh_cfg "$root" '.verify.format')
   if [ -n "$configured" ]; then
     printf '%s' "$configured"
     return 0
@@ -154,7 +173,7 @@ fh_format_cmd() {
 # 남은 것만 Claude 에게 보여주는 게 목적이다.
 fh_lint_cmd() {
   local root=$1 configured
-  configured=$(fh_cfg "$root" '.lint')
+  configured=$(fh_cfg "$root" '.verify.lint')
   if [ -n "$configured" ]; then
     printf '%s' "$configured"
     return 0

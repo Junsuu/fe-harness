@@ -28,7 +28,16 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 root=$(fh_root "$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)")
 
-fh_disabled "$root" inject && exit 0
+fh_disabled "$root" guide && exit 0
+
+# 0.1.x 평면 스키마가 남아 있으면 먼저 알린다. 옛 키는 이제 읽지 않으므로
+# 말해주지 않으면 사용자는 자기 설정이 도는 줄 안다.
+legacy=$(fh_legacy_keys "$root")
+if [ -n "$legacy" ]; then
+  printf 'fe-harness: .fe-harness.json 의 옛 키(%s)는 0.2.0 부터 읽지 않습니다. ' "$legacy"
+  printf 'format/lint/typecheck/test 는 verify 아래로, max* 는 signals 아래로 옮기세요. '
+  printf '.fe-harness.example.json 참고.\n'
+fi
 
 # 사용자가 문구를 직접 정했으면 그것만 낸다.
 custom=$(fh_cfg "$root" '.inject')
@@ -37,14 +46,14 @@ if [ -n "$custom" ]; then
   exit 0
 fi
 
-# 아니면 실제 임계값을 그대로 알려준다. 훅이 무엇으로 막을지 미리 아는 게 낫다.
-new_lines=$(fh_cfg_num "$root" '.maxNewFileLines' 250)
-edit_lines=$(fh_cfg_num "$root" '.maxEditLines' 80)
-components=$(fh_cfg_num "$root" '.maxComponentsPerFile' 1)
+# 컴포넌트 개수는 더 이상 차단하지 않는다 — 정상 코드의 5~31% 를 막았다.
+# 여기서는 실제로 반려하는 것(분량)만 알린다. 훅이 무엇으로 막을지 미리
+# 아는 게 낫고, 안 막는 것을 막는다고 말하면 그게 곧 거짓말이다.
+new_lines=$(fh_cfg_num "$root" '.signals.maxNewFileLines' 250)
+edit_lines=$(fh_cfg_num "$root" '.signals.maxEditLines' 80)
 
-printf 'fe-harness 가 켜져 있습니다. 프론트엔드 소스에 다음이 강제됩니다 — '
-printf '컴포넌트는 파일당 %s개, 새 파일 Write 는 %s줄, 한 번의 Edit 는 %s줄까지.\n' \
-  "$components" "$new_lines" "$edit_lines"
+printf 'fe-harness 가 켜져 있습니다. 프론트엔드 소스에서 새 파일 Write 는 %s줄, ' "$new_lines"
+printf '한 번의 Edit 는 %s줄까지 받습니다.\n' "$edit_lines"
 printf '막힌 뒤에 쪼개지 말고 처음부터 파일을 나눠서 쓰세요. '
 printf '새 파일을 만드는 쪽이 기존 파일을 불리는 쪽보다 쌉니다.\n'
 

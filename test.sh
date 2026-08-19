@@ -97,11 +97,11 @@ expect_format() {
 # 추론 실패 → 조용히 통과. 훅이 확신 없이 뭔가 실행하면 안 된다.
 expect_format '포매터없음-무동작' 0 ''
 # 설정이 있으면 무조건 신뢰
-expect_format '설정지정-실행' 1 '{"format":"./fake-fmt.sh"}'
+expect_format '설정지정-실행' 1 '{"verify":{"format":"./fake-fmt.sh"}}'
 # 끌 수 있어야 한다 — 끌 방법이 없으면 사용자는 플러그인을 삭제한다
-expect_format 'disable.format-무동작' 0 '{"format":"./fake-fmt.sh","disable":{"format":true}}'
+expect_format 'disable.format-무동작' 0 '{"verify":{"format":"./fake-fmt.sh"},"disable":{"format":true}}'
 # 프로젝트 밖의 파일은 건드리지 않는다
-expect_format '프로젝트밖-무동작' 0 '{"format":"./fake-fmt.sh"}' "$TMP.outside.tsx"
+expect_format '프로젝트밖-무동작' 0 '{"verify":{"format":"./fake-fmt.sh"}}' "$TMP.outside.tsx"
 rm -f "$TMP.outside.tsx"
 
 # --- 분량 게이트 (P0-2) --------------------------------------------------
@@ -145,11 +145,11 @@ expect_guard 'Edit-79줄-통과'        0 Edit  "$TMP/a.tsx" 79
 expect_guard 'Edit-81줄-반려'        2 Edit  "$TMP/a.tsx" 81
 
 # 설정으로 조정된다
-expect_guard '임계값설정-반려'        2 Write "$TMP/a.tsx" 60  '{"maxNewFileLines":50}'
-expect_guard '임계값설정-통과'        0 Write "$TMP/a.tsx" 40  '{"maxNewFileLines":50}'
+expect_guard '임계값설정-반려'        2 Write "$TMP/a.tsx" 60  '{"signals":{"maxNewFileLines":50}}'
+expect_guard '임계값설정-통과'        0 Write "$TMP/a.tsx" 40  '{"signals":{"maxNewFileLines":50}}'
 
 # 끌 수 있어야 한다
-expect_guard 'disable.guard-통과'     0 Write "$TMP/a.tsx" 999 '{"disable":{"guard":true}}'
+expect_guard 'disable.signals-통과'     0 Write "$TMP/a.tsx" 999 '{"disable":{"signals":true}}'
 
 # 코드가 아닌 파일은 분량으로 막지 않는다 — 긴 문서는 정상이다
 expect_guard '마크다운-통과'          0 Write "$TMP/DESIGN.md" 999
@@ -201,8 +201,8 @@ else
   printf 'FAIL  %-32s 기본=%s observe=%s (기대 0 / 1)\n' '관찰모드-플래그' "$off" "$on"
 fi
 
-# --- 인라인 컴포넌트 (P0-3) ----------------------------------------------
-# Write 는 PreToolUse 반려, Edit 는 PostToolUse 경고.
+# --- 컴포넌트 개수 — 신호 ------------------------------------------------
+# 차단하지 않는다. PostToolUse(Write|Edit) 경고만. 판단은 review 역할이 한다.
 
 # 개수 세는 함수와 이름 뽑는 함수가 어긋나면 반려 메시지가 거짓말을 한다.
 for f in "$ROOT"/fixtures/*.tsx; do
@@ -219,76 +219,24 @@ done
 
 COMP_ERR=$TMP/comp.stderr
 
-run_guard_components() {
-  local target=$1 src=$2 config=$3
-  if [ -n "$config" ]; then
-    printf '%s\n' "$config" > "$TMP/.fe-harness.json"
-  else
-    rm -f "$TMP/.fe-harness.json"
-  fi
-  printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s","content":%s}}' \
-    "$TMP" "$target" "$(jq -Rs . < "$src")" \
-    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/guard-components.sh" 2> "$COMP_ERR"
-  comp_exit=$?
-}
-
-expect_components() {
-  local label=$1 want=$2 fixture=$3 config=${4:-}
-  run_guard_components "$TMP/a.tsx" "$ROOT/fixtures/$fixture" "$config"
-  if [ "$comp_exit" -eq "$want" ]; then
-    pass=$((pass + 1))
-    printf 'ok    %-32s exit=%s\n' "$label" "$comp_exit"
-  else
-    fail=$((fail + 1))
-    printf 'FAIL  %-32s exit=%s (기대 %s)\n' "$label" "$comp_exit" "$want"
-  fi
-}
-
-expect_components 'Write-1개-통과'      0 mixed-single-component.tsx
-expect_components 'Write-2개-반려'      2 inline-two-components.tsx
-expect_components 'Write-0개-통과'      0 negative-non-components.tsx
-expect_components '허용2로완화-통과'    0 inline-two-components.tsx '{"maxComponentsPerFile":2}'
-expect_components 'disable.guard-통과'  0 inline-two-components.tsx '{"disable":{"guard":true}}'
-expect_components 'exclude-통과'        0 inline-two-components.tsx '{"exclude":["**/a.tsx"]}'
-
-# 반려 메시지에 컴포넌트 이름이 실제로 들어가는가
-run_guard_components "$TMP/a.tsx" "$ROOT/fixtures/inline-two-components.tsx" ''
-if grep -q 'EmptyState' "$COMP_ERR" && grep -q 'OrderList' "$COMP_ERR"; then
-  pass=$((pass + 1))
-  printf 'ok    %-32s 이름 포함\n' 'stderr-컴포넌트이름'
-else
-  fail=$((fail + 1))
-  printf 'FAIL  %-32s\n' 'stderr-컴포넌트이름'
-  sed 's/^/      /' "$COMP_ERR"
-fi
-
-# Edit 은 PreToolUse 에서 판정하지 않는다 — 조각만 오니까
-printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/a.tsx","new_string":"x"}}' \
-  "$TMP" "$TMP" | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/guard-components.sh" 2>/dev/null
-if [ $? -eq 0 ]; then
-  pass=$((pass + 1)); printf 'ok    %-32s Pre 에서 판정 안 함\n' 'Edit-guard-통과'
-else
-  fail=$((fail + 1)); printf 'FAIL  %-32s\n' 'Edit-guard-통과'
-fi
-
-# PostToolUse 경고 — 완성된 파일을 읽는다
+# 완성된 파일을 읽어서 센다
 run_warn() {
-  local fixture=$1 config=$2
+  local fixture=$1 config=$2 tool=${3:-Edit}
   cp "$ROOT/fixtures/$fixture" "$TMP/a.tsx"
   if [ -n "$config" ]; then
     printf '%s\n' "$config" > "$TMP/.fe-harness.json"
   else
     rm -f "$TMP/.fe-harness.json"
   fi
-  printf '{"tool_name":"Edit","cwd":"%s","tool_input":{"file_path":"%s/a.tsx","new_string":"x"}}' \
-    "$TMP" "$TMP" \
+  printf '{"tool_name":"%s","cwd":"%s","tool_input":{"file_path":"%s/a.tsx","new_string":"x"}}' \
+    "${3:-Edit}" "$TMP" "$TMP" \
     | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/warn-components.sh" 2> "$COMP_ERR"
   warn_exit=$?
 }
 
 expect_warn() {
-  local label=$1 want=$2 fixture=$3 config=${4:-}
-  run_warn "$fixture" "$config"
+  local label=$1 want=$2 fixture=$3 config=${4:-} tool=${5:-Edit}
+  run_warn "$fixture" "$config" "$tool"
   if [ "$warn_exit" -eq "$want" ]; then
     pass=$((pass + 1))
     printf 'ok    %-32s exit=%s\n' "$label" "$warn_exit"
@@ -301,7 +249,12 @@ expect_warn() {
 # exit 2 = 차단이 아니라 stderr 를 Claude 에게 보여주기
 expect_warn 'Edit-2개-경고'        2 inline-two-components.tsx
 expect_warn 'Edit-1개-무동작'      0 mixed-single-component.tsx
-expect_warn 'disable.warn-무동작'  0 inline-two-components.tsx '{"disable":{"warn":true}}'
+expect_warn 'disable.signals-무동작' 0 inline-two-components.tsx '{"disable":{"signals":true}}'
+# 옛 disable 키는 더 이상 안 먹는다 — 경고가 그대로 나야 한다
+expect_warn 'disable.warn-구키워드무시' 2 inline-two-components.tsx '{"disable":{"warn":true}}'
+# 차단 훅이 사라졌으므로 Write 도 여기서 신호를 내야 한다
+expect_warn 'Write-2개-경고'       2 inline-two-components.tsx '' Write
+expect_warn 'Write-1개-무동작'     0 mixed-single-component.tsx '' Write
 
 # --- 린트 피드백 (P1-6) --------------------------------------------------
 # 설정이 없으면 아무것도 안 한다. 있으면 남은 문제만 stderr 로 낸다.
@@ -338,25 +291,25 @@ expect_lint() {
 expect_lint '린터없음-무동작'    0 ''
 # 통과하는 린터
 printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP/ok-lint.sh"; chmod +x "$TMP/ok-lint.sh"
-expect_lint '린트통과-무동작'    0 '{"lint":"./ok-lint.sh"}'
+expect_lint '린트통과-무동작'    0 '{"verify":{"lint":"./ok-lint.sh"}}'
 # 실패하는 린터 → exit 2 로 Claude 에게 보여준다
 printf '#!/usr/bin/env bash\necho "1:1 error no-unused-vars"\nexit 1\n' > "$TMP/ng-lint.sh"
 chmod +x "$TMP/ng-lint.sh"
-expect_lint '린트실패-피드백'    2 '{"lint":"./ng-lint.sh"}'
-run_lint '{"lint":"./ng-lint.sh"}'
+expect_lint '린트실패-피드백'    2 '{"verify":{"lint":"./ng-lint.sh"}}'
+run_lint '{"verify":{"lint":"./ng-lint.sh"}}'
 if grep -q 'no-unused-vars' "$LINT_ERR"; then
   pass=$((pass + 1)); printf 'ok    %-32s 린터 출력 전달됨\n' 'stderr-린터출력'
 else
   fail=$((fail + 1)); printf 'FAIL  %-32s\n' 'stderr-린터출력'
 fi
-expect_lint 'disable.lint-무동작' 0 '{"lint":"./ng-lint.sh","disable":{"lint":true}}'
+expect_lint 'disable.lint-무동작' 0 '{"verify":{"lint":"./ng-lint.sh"},"disable":{"lint":true}}'
 
 # 린터가 아예 못 돈 경우(설정·CLI 오류)를 코드 문제로 보고하면 안 된다.
 # ESLint 는 1 이 lint 문제, 2 가 설정 오류다. 2026-08-18 현업 저장소에서
 # 플래그 하나가 안 맞아 죽은 걸 "린트 문제" 로 보고한 적이 있다.
 printf '#!/usr/bin/env bash\necho "Invalid option --nope"\nexit 2\n' > "$TMP/broken-lint.sh"
 chmod +x "$TMP/broken-lint.sh"
-expect_lint '린터실행실패-무동작' 0 '{"lint":"./broken-lint.sh"}'
+expect_lint '린터실행실패-무동작' 0 '{"verify":{"lint":"./broken-lint.sh"}}'
 
 # type-aware ESLint 가 tsconfig include 밖의 파일에 내는 에러도 코드 문제가 아니다
 cat > "$TMP/tsconfig-lint.sh" <<'LINT'
@@ -366,7 +319,7 @@ echo "However, that TSConfig does not include this file."
 exit 1
 LINT
 chmod +x "$TMP/tsconfig-lint.sh"
-expect_lint 'tsconfig불일치-무동작' 0 '{"lint":"./tsconfig-lint.sh"}'
+expect_lint 'tsconfig불일치-무동작' 0 '{"verify":{"lint":"./tsconfig-lint.sh"}}'
 
 # --- 품질 게이트 (P1-4) --------------------------------------------------
 # 제일 중요한 건 무한 루프 방지다.
@@ -405,14 +358,14 @@ chmod +x "$TMP/ng.sh"
 
 # 설정이 없으면 절대 돌지 않는다 — 이 훅만은 추론하지 않는다
 expect_gate '설정없음-무동작'      0 ''
-expect_gate '타입체크통과-통과'    0 '{"typecheck":"./ok.sh"}'
-expect_gate '타입체크실패-차단'    2 '{"typecheck":"./ng.sh"}'
-expect_gate '테스트실패-차단'      2 '{"test":"./ng.sh"}'
-expect_gate 'disable.gate-무동작'  0 '{"typecheck":"./ng.sh","disable":{"gate":true}}'
+expect_gate '타입체크통과-통과'    0 '{"verify":{"typecheck":"./ok.sh"}}'
+expect_gate '타입체크실패-차단'    2 '{"verify":{"typecheck":"./ng.sh"}}'
+expect_gate '테스트실패-차단'      2 '{"verify":{"test":"./ng.sh"}}'
+expect_gate 'disable.gate-무동작'  0 '{"verify":{"typecheck":"./ng.sh"},"disable":{"gate":true}}'
 # stop_hook_active 를 무시하면 무한 루프다
-expect_gate '재진입-즉시통과'      0 '{"typecheck":"./ng.sh"}' true
+expect_gate '재진입-즉시통과'      0 '{"verify":{"typecheck":"./ng.sh"}}' true
 
-run_gate '{"typecheck":"./ng.sh"}'
+run_gate '{"verify":{"typecheck":"./ng.sh"}}'
 if grep -q 'TS2304' "$GATE_ERR" && grep -q '타입체크' "$GATE_ERR"; then
   pass=$((pass + 1)); printf 'ok    %-32s 실패 출력 전달됨\n' 'stderr-검사출력'
 else
@@ -434,18 +387,41 @@ run_inject() {
 }
 
 out=$(run_inject '')
-if printf '%s' "$out" | grep -q '250줄' && printf '%s' "$out" | grep -q '80줄' &&
-   printf '%s' "$out" | grep -q '1개'; then
+if printf '%s' "$out" | grep -q '250줄' && printf '%s' "$out" | grep -q '80줄'; then
   pass=$((pass + 1)); printf 'ok    %-32s 실제 임계값 포함\n' '주입-기본문구'
 else
   fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-기본문구' "$out"
 fi
 
-out=$(run_inject '{"maxNewFileLines":120,"maxEditLines":40,"maxComponentsPerFile":2}')
+# 안 막는 것을 막는다고 말하면 그게 거짓말이다 — 컴포넌트 차단은 폐기됐다
+if printf '%s' "$out" | grep -q '컴포넌트'; then
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-컴포넌트언급없음' "$out"
+else
+  pass=$((pass + 1)); printf 'ok    %-32s 폐기된 게이트를 안 알림\n' '주입-컴포넌트언급없음'
+fi
+
+out=$(run_inject '{"signals":{"maxNewFileLines":120,"maxEditLines":40}}')
 if printf '%s' "$out" | grep -q '120줄' && printf '%s' "$out" | grep -q '40줄'; then
   pass=$((pass + 1)); printf 'ok    %-32s 설정을 반영\n' '주입-설정반영'
 else
   fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-설정반영' "$out"
+fi
+
+# 옛 평면 스키마를 읽지 않는 대신 반드시 알려야 한다 — 조용한 무시는 에러보다 나쁘다
+out=$(run_inject '{"lint":"eslint","maxNewFileLines":120}')
+if printf '%s' "$out" | grep -q '읽지 않습니다' && printf '%s' "$out" | grep -q 'lint' &&
+   printf '%s' "$out" | grep -q 'maxNewFileLines'; then
+  pass=$((pass + 1)); printf 'ok    %-32s 옛 키를 지목해서 알림\n' '주입-구스키마감지'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-구스키마감지' "$out"
+fi
+
+# 새 스키마만 있으면 마이그레이션 문구가 나오면 안 된다
+out=$(run_inject '{"verify":{"lint":"eslint"},"signals":{"maxNewFileLines":120}}')
+if printf '%s' "$out" | grep -q '읽지 않습니다'; then
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-신스키마오탐없음' "$out"
+else
+  pass=$((pass + 1)); printf 'ok    %-32s 오탐 없음\n' '주입-신스키마오탐없음'
 fi
 
 out=$(run_inject '{"inject":"우리 규칙 한 줄"}')
@@ -455,11 +431,11 @@ else
   fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-커스텀' "$out"
 fi
 
-out=$(run_inject '{"disable":{"inject":true}}')
+out=$(run_inject '{"disable":{"guide":true}}')
 if [ -z "$out" ]; then
-  pass=$((pass + 1)); printf 'ok    %-32s 아무것도 안 냄\n' 'disable.inject'
+  pass=$((pass + 1)); printf 'ok    %-32s 아무것도 안 냄\n' 'disable.guide'
 else
-  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' 'disable.inject' "$out"
+  fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' 'disable.guide' "$out"
 fi
 
 # 주입 문구는 짧아야 한다. 여기 넣는 만큼 매 세션 컨텍스트를 먹는다.
