@@ -340,9 +340,7 @@ echo '{"tool_name":"Write","cwd":"'$PWD'","tool_input":{"file_path":"/tmp/a.tsx"
   | ./hooks/scripts/warn-size.sh; echo "exit=$?"
 ```
 
-설계와 근거: [docs/DESIGN.md](docs/DESIGN.md) ·
-v1 이 무너진 과정: [docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md) ·
-v2 를 만든 과정: [docs/RETROSPECTIVE-v2.md](docs/RETROSPECTIVE-v2.md)
+설계와 근거: [docs/DESIGN.md](docs/DESIGN.md)
 
 ## 라이선스
 
