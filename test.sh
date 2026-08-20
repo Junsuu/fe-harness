@@ -553,5 +553,72 @@ sed -i '' 's/	-$/	승격:hookify/' "$FTMP/.fe-harness/findings.md" 2>/dev/null |
   sed -i 's/\t-$/\t승격:hookify/' "$FTMP/.fe-harness/findings.md"
 expect_fnd 'findings-승격후-재제안없음' '' count
 
+# --- 루프 트리거 (asyncRewake) --------------------------------------------
+# 훅은 방아쇠와 결정적 계산만 맡는다. 절차는 lap.md 한 곳에만 있다.
+
+LTMP=$TMP/loop-repo
+mkdir -p "$LTMP"
+(
+  cd "$LTMP" || exit 1
+  git init -q . && git config user.email t@t && git config user.name t
+  cat > count.sh <<'CNT'
+#!/usr/bin/env bash
+printf '{"statistics":{"total":{"clones":%s}}}\n' "$(ls dup-*.txt 2>/dev/null | wc -l | tr -d ' ')"
+CNT
+  chmod +x count.sh
+  printf 'const a = 1\n' > a.tsx && touch dup-1.txt && git add -A && git commit -qm base
+) >/dev/null 2>&1
+
+lcfg() { printf '%s\n' "$1" > "$LTMP/.fe-harness.json"; }
+lfire() {
+  printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"git commit -m x"}}' "$LTMP" \
+    | env -u CLAUDE_PROJECT_DIR bash "$ROOT/hooks/scripts/loop-trigger.sh" "${1:-commit}" 2>&1
+}
+
+expect_loop() {
+  local label=$1 want=$2 out
+  shift 2
+  out=$(lfire "$@")
+  if { [ -n "$want" ] && printf '%s' "$out" | grep -q -- "$want"; } ||
+     { [ -z "$want" ] && [ -z "$out" ]; }; then
+    pass=$((pass + 1)); printf 'ok    %-32s\n' "$label"
+  else
+    fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' "$label" "${out:-(빈 출력)}"
+  fi
+}
+
+lcfg '{"verify":{"duplication":"./count.sh"}}'
+
+# 문서만 고친 커밋에 FE 리뷰를 돌리면 토큰만 쓰고 잡음만 낸다
+( cd "$LTMP" && printf '# doc\n' > README.md && git add -A && git commit -qm docs ) >/dev/null 2>&1
+expect_loop '루프-문서만-안깨움'      '' commit
+
+( cd "$LTMP" && printf 'const b = 2\n' >> a.tsx && touch dup-2.txt && git add -A && git commit -qm feat ) >/dev/null 2>&1
+expect_loop '루프-FE변경-깨움'        '내부 루프' commit
+expect_loop '루프-검사결과-첨부'      '(+1)' commit
+# 훅에 절차를 복제하지 않는다. 한 곳만 가리켜야 lap.md 와 안 갈린다
+expect_loop '루프-lap을가리킴'        'fe-harness:lap' commit
+expect_loop '루프-중복실행방지'       '다시 돌리지 않는다' commit
+
+# jq 의 // 가 false 를 삼키는 바람에 끄기가 안 먹던 버그
+lcfg '{"verify":{"duplication":"./count.sh"},"trigger":{"commit":false}}'
+expect_loop '루프-trigger.false-끔'   '' commit
+
+lcfg '{"verify":{"duplication":"./count.sh"},"trigger":{"commit":true}}'
+expect_loop '루프-trigger.true-켬'    '내부 루프' commit
+
+lcfg '{"verify":{"duplication":"./count.sh"},"disable":{"loop":true}}'
+expect_loop 'disable.loop-무동작'     '' commit
+
+# rewake 본문은 stderr + exit 2 로 간다
+lcfg '{"verify":{"duplication":"./count.sh"}}'
+printf '{"tool_name":"Bash","cwd":"%s","tool_input":{}}' "$LTMP" \
+  | env -u CLAUDE_PROJECT_DIR bash "$ROOT/hooks/scripts/loop-trigger.sh" commit >/dev/null 2>&1
+if [ $? -eq 2 ]; then
+  pass=$((pass + 1)); printf 'ok    %-32s exit=2\n' '루프-exit2'
+else
+  fail=$((fail + 1)); printf 'FAIL  %-32s\n' '루프-exit2'
+fi
+
 printf '\npass=%d fail=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

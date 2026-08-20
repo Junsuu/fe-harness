@@ -44,6 +44,25 @@ fh_cfg_num() {
   esac
 }
 
+# 불리언 설정. 없거나 불리언이 아니면 기본값.
+#
+# fh_cfg 를 쓰면 안 된다 — jq 의 `//` 는 false 를 "값 없음"으로 삼켜서
+# `{"trigger":{"commit":false}}` 가 빈 문자열로 나온다. 끄려고 적은 설정이
+# 조용히 무시되는 것은 에러보다 나쁘다.
+fh_cfg_bool() {
+  local root=$1 path=$2 default=$3 file=$1/.fe-harness.json value
+  if [ -f "$file" ]; then
+    value=$(jq -r "$path | if type == \"boolean\" then tostring else empty end" "$file" 2>/dev/null)
+    case $value in
+      true | false)
+        printf '%s' "$value"
+        return 0
+        ;;
+    esac
+  fi
+  printf '%s' "$default"
+}
+
 # 0.1.x 평면 스키마 키가 남아 있으면 그 이름들을 출력한다. 없으면 아무것도.
 #
 # 스키마를 verify.* / signals.* 로 묶으면서 옛 키는 읽지 않기로 했다.
@@ -71,7 +90,7 @@ fh_cfg_list() {
 # disable 을 반드시 넣는다 — 도구가 방해될 때 끌 방법이 없으면 사용자는 삭제한다.
 fh_disabled() {
   local root=$1 name=$2
-  [ "$(fh_cfg "$root" ".disable.$name")" = "true" ]
+  [ "$(fh_cfg_bool "$root" ".disable.$name" false)" = "true" ]
 }
 
 # 파일이 속한 가장 가까운 패키지 디렉터리. 없으면 root.

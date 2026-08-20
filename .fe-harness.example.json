@@ -67,6 +67,12 @@
     "a11yRuntime": ""
   },
 
+  "__trigger": "루프를 무엇이 깨우는가. false 로 두면 그 시점에는 자동으로 안 돈다 — /lap 은 그대로 쓸 수 있다.",
+  "trigger": {
+    "commit": true,
+    "push": true
+  },
+
   "__extensions": "분량·컴포넌트·린트 검사의 대상 확장자. 생략하면 아래가 기본값이다. 문서·설정 파일은 보지 않는다.",
   "extensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "vue", "svelte"],
 
@@ -99,6 +105,7 @@
     "lint": false,
     "gate": false,
     "verify": false,
-    "signals": false
+    "signals": false,
+    "loop": false
   }
 }

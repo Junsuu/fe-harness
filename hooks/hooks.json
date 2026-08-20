@@ -46,6 +46,33 @@
             "statusMessage": "린트"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/loop-trigger.sh commit",
+            "args": [],
+            "timeout": 120,
+            "if": "Bash(git commit:*)",
+            "asyncRewake": true,
+            "rewakeMessage": "방금 커밋한 변경의 품질 루프 결과다. 지적을 반영하거나 미루는 이유를 남긴 뒤, 사용자의 원래 요청을 계속한다:",
+            "rewakeSummary": "커밋 품질 루프",
+            "statusMessage": "품질 루프 (커밋)"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/loop-trigger.sh push",
+            "args": [],
+            "timeout": 600,
+            "if": "Bash(git push:*)",
+            "asyncRewake": true,
+            "rewakeMessage": "푸시한 브랜치 전체의 품질 루프 결과다. 반복된 지적이 있으면 규칙 승격을 제안한 뒤, 사용자의 원래 요청을 계속한다:",
+            "rewakeSummary": "푸시 품질 루프",
+            "statusMessage": "품질 루프 (푸시)"
+          }
+        ]
       }
     ],
     "Stop": [

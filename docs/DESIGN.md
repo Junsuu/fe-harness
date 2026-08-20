@@ -838,8 +838,8 @@ duplication  deadcode  a11y  naming  other          ← verify 가 재는 것들
 | 3 | ✅ `/lap` 을 역할 기반 **이중 루프**로 재작성 | command | 수동 루프가 먼저 돌아야 자동을 건다 |
 | 4 | ✅ `verify` 확장 — `verify-scan.sh` (jscpd · knip **델타**) | 스크립트 | 사용자 증상의 직답. 결정적이라 검증도 쉽다 |
 | 5 | ✅ `learn` — `findings.sh` (누적 · 3회 승격 제안) | 스크립트 + `/lap` | 루프의 이유 |
-| 6 | `loop-on-commit` 훅 (`asyncRewake`) — **내부 루프** | hook | **3·5 가 검증된 뒤에** 자동화한다 |
-| 6b | `loop-on-push` 훅 — **외부 루프** (a11y 런타임 · 전체 스캔 · 브랜치 리뷰 · 승격) | hook | 6 과 같은 방식. 검사 항목만 다르다 |
+| 6 | ✅ `loop-trigger.sh commit` (`asyncRewake`) — **내부 루프** | hook | 3·5 검증 후 자동화 |
+| 6b | ✅ `loop-trigger.sh push` — **외부 루프** | hook | 같은 스크립트. 검사 항목만 다르다 |
 
 **6·6b 를 만들 때 지킬 것** — 훅에 절차를 복제하지 않는다. 결정적 계산만 하고
 나머지는 `/lap` 을 가리킨다(8장). 훅이 커지면 `lap.md` 와 갈린다.
@@ -1219,5 +1219,24 @@ v2 가 이미 폐기했다.** 근거가 철회된 장치를 "작동하니까" �
 가독성·응집도와 겹친다. 다관점 리뷰를 붙인다면 **읽기만 하고 축이 다른 것**
 (`silent-failure-hunter`, `type-design-analyzer`)을 **외부 루프에** 붙이는 게 맞다.
 기본값은 단독으로 두고, 두 번째 렌즈가 새 지적을 내는지는 `findings` 로 판정한다.
+
+**`jq` 의 `//` 가 `false` 를 삼켰다.**
+`trigger.commit: false` 로 트리거를 껐는데 그대로 돌았다. `fh_cfg` 가
+`jq -r "$path // empty"` 를 쓰는데, `//` 는 `null` 뿐 아니라 **`false` 도
+"값 없음"으로 취급**한다. 기존 `fh_disabled` 는 `true` 인지만 봐서 우연히
+멀쩡했고, `false` 를 검사하는 첫 순간에 드러났다.
+
+**끄려고 적은 설정이 조용히 무시되는 것은 에러보다 나쁘다** — 사용자는 껐다고
+믿는다. 구 스키마를 감지해서 알리기로 한 것과 같은 이유다.
+→ `fh_cfg_bool` 을 추가하고 `fh_disabled` 도 그쪽으로 옮겼다.
+
+**훅이 절차를 갖지 않는다는 규칙이 실제로 값을 했다.**
+`loop-trigger.sh` 는 방아쇠 · 대상 판정 · `verify-scan` 호출까지만 하고,
+stderr 로 **`fe-harness:lap` 을 가리킨다.** 절차가 셸에 없으니 `lap.md` 를
+4단계로 재작성할 때 훅은 손댈 것이 없었다.
+
+**FE 파일이 안 바뀐 커밋은 깨우지 않는다.**
+문서·설정만 고친 커밋에 FE 리뷰를 돌리면 토큰만 쓰고 잡음만 낸다.
+`extensions` · `exclude` 를 그대로 재사용해 판정한다.
 
 _(이후 계속)_
