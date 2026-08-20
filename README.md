@@ -169,6 +169,12 @@ claude plugin install fe-harness@fe-harness
 claude plugin list      # Status 확인
 ```
 
+설치 후 한 번:
+
+```
+/fe-harness:setup       # 저장소를 훑어 .fe-harness.json 을 만든다
+```
+
 - 마켓만 등록돼 있으면 의존 플러그인(`frontend-fundamentals` · `hookify` · `commit-commands`)은 **자동 설치**
 - **기본 설정에 적힌 도구는 전부 필수.** 하나라도 없으면 그 역할이 조용히 비고, 그건 도는 척하는 것이다
 - **`validate --strict` 는 로드 성공을 보장하지 않는다.** 매니페스트가 멀쩡해도 훅이 안 붙을 수 있어 `Status` 를 봐야 한다
@@ -177,7 +183,8 @@ claude plugin list      # Status 확인
 
 ## 설정
 
-프로젝트 루트에 `.fe-harness.json` 을 둔다. 없어도 동작한다.
+프로젝트 루트에 `.fe-harness.json` 을 둔다. **없어도 동작한다.**
+`/fe-harness:setup` 이 저장소를 훑어 만들어 주므로 직접 쓸 필요는 없다.
 
 | 상태 | 동작 |
 | --- | --- |
@@ -225,6 +232,7 @@ claude plugin list      # Status 확인
 **`verify` 는 대부분 추론하지 않는다.** `format` 과 `lint` 만 prettier / eslint /
 biome 를 찾아본다. 나머지는 **명시했을 때만** 돈다.
 추측한 `test` 가 몇 분짜리 통합 테스트일 수도 있기 때문이다.
+그래서 `/fe-harness:setup` 은 테스트 명령을 넣기 전에 반드시 물어본다.
 
 ### 끄는 법
 

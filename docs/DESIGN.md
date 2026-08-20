@@ -846,6 +846,7 @@ duplication  deadcode  a11y  naming  other          ← verify 가 재는 것들
 | 7 | `guide` 주입 재작성 (+ serena 권장 안내) | `reinject.sh` | 무엇을 넣을지는 `findings` 를 보고 정한다 |
 | 8 | **`a11y-semantics`** — **별도 저장소**에 신설 후 조립 | 다른 저장소 | `findings` 가 필요를 증명한 뒤. 필요 없으면 안 만든다 |
 | 9 | ✅ `guard-components` 제거 · `guard-size` → `warn-size` 강등 | hook | 완료 |
+| 10 | ✅ `/fe-harness:setup` — 저장소를 훑어 설정 생성 | 스크립트 + command | 예시를 손으로 옮겨 적게 두면 대부분 틀린 값이 들어간다 |
 
 **8번은 fe-harness 의 작업이 아니다.** **다른 저장소**의 플러그인을 만드는
 일이고, fe-harness 쪽 변경은 `dependencies` · 기본 조합 · 크로스마켓 허용
@@ -1238,5 +1239,16 @@ stderr 로 **`fe-harness:lap` 을 가리킨다.** 절차가 셸에 없으니 `la
 **FE 파일이 안 바뀐 커밋은 깨우지 않는다.**
 문서·설정만 고친 커밋에 FE 리뷰를 돌리면 토큰만 쓰고 잡음만 낸다.
 `extensions` · `exclude` 를 그대로 재사용해 판정한다.
+
+**설정을 손으로 쓰게 두고 있었다.**
+`.fe-harness.example.json` 을 보고 옮겨 적으라고 했는데, `verify` 항목은 그
+저장소에 **실제로 있는 명령**이어야 해서 예시를 복사하면 대부분 틀린다.
+설정이 필수가 아닌 것과, 설정을 만들기 쉬운 것은 별개 문제였다.
+→ `/fe-harness:setup` 을 만들었다.
+
+**여기서도 분업이 같았다.** `detect-project.sh` 는 `node_modules/.bin/knip` 이
+있나 같은 **사실**만 내고, `scripts.test` 를 `Stop` 게이트에 넣어도 되는지 같은
+**판단**은 커맨드를 읽는 모델과 사람이 한다. 이름만 보고 e2e 를 게이트에 넣으면
+매 턴이 몇 분씩 늘어나고, 그러면 플러그인이 꺼진다.
 
 _(이후 계속)_
