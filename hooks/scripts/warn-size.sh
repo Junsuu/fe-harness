@@ -48,7 +48,7 @@ root=$(fh_root "$(_field '.cwd')")
 
 fh_disabled "$root" signals && exit 0
 
-# 관찰 모드 — 기본 꺼짐. payload 를 저장소 밖에 떠서 디버깅에 쓴다 (8장).
+# 관찰 모드 — 기본 꺼짐. payload 를 저장소 밖에 떠서 디버깅에 쓴다.
 if [ "$(fh_cfg "$root" '.observe')" = "true" ]; then
   observe_dir=${FE_HARNESS_OBSERVE_DIR:-${TMPDIR:-/tmp}/fe-harness-observe}
   if mkdir -p "$observe_dir" 2>/dev/null; then

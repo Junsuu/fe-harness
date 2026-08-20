@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 루프 방아쇠. PostToolUse(Bash) + asyncRewake — 커밋·푸시 시점에 루프를 깨운다.
 #
-# 이 스크립트가 하지 않는 것 (docs/DESIGN.md 8장):
+# 이 스크립트가 하지 않는 것 (docs/DESIGN.md 「훅 구조 — 절차는 한 곳에만」):
 #   순서 · 역할 해석 · 판단을 갖지 않는다. **절차의 정의는 commands/lap.md 하나뿐이다.**
 #   훅에 절차가 생기면 셸 한 벌과 마크다운 한 벌이 되고, 둘은 반드시 갈린다.
 #

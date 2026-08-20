@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 저장소 사실 수집. /fe-harness:setup 이 설정을 만들 때 쓴다.
 #
-# 여기서 하는 것과 안 하는 것 (docs/DESIGN.md 8장의 분업을 그대로 따른다):
+# 여기서 하는 것과 안 하는 것 (docs/DESIGN.md 「분류 축」의 분업을 그대로 따른다):
 #   한다     "node_modules/.bin/knip 이 있나" 같은 **사실**
 #   안 한다  "scripts.test 를 verify.test 에 넣어도 되나" 같은 **판단**
 #
