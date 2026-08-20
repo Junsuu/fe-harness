@@ -71,7 +71,7 @@
 claude plugin marketplace add toss/frontend-fundamentals
 claude plugin marketplace add anthropics/claude-plugins-official
 
-claude plugin marketplace add <이 저장소 경로 또는 URL>
+claude plugin marketplace add Junsuu/fe-harness
 claude plugin install fe-harness@fe-harness
 
 claude plugin list      # Status 확인
