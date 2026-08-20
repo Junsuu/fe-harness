@@ -341,7 +341,8 @@ echo '{"tool_name":"Write","cwd":"'$PWD'","tool_input":{"file_path":"/tmp/a.tsx"
 ```
 
 설계와 근거: [docs/DESIGN.md](docs/DESIGN.md) ·
-여기까지 온 과정: [docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md)
+v1 이 무너진 과정: [docs/RETROSPECTIVE.md](docs/RETROSPECTIVE.md) ·
+v2 를 만든 과정: [docs/RETROSPECTIVE-v2.md](docs/RETROSPECTIVE-v2.md)
 
 ## 라이선스
 
