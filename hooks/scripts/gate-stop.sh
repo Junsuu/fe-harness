@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# P1-4 품질 게이트. Stop — 타입체크·테스트가 통과하기 전엔 턴을 못 끝낸다.
+# 품질 게이트. Stop — 타입체크·테스트가 통과하기 전엔 턴을 못 끝낸다.
 #
 # 이것도 "예방"이 아니라 퀄리티 향상이다. 안 되는 코드가 턴을 넘어가지 않는다.
 #
@@ -9,14 +9,14 @@
 #   정면으로 어긋난다. 게다가 추론한 test 명령이 몇 분짜리일 수도 있다.
 #   .fe-harness.json 에 typecheck / test 를 **명시했을 때만** 돈다.
 #
-# 무한 루프 방지 (7장):
+# 무한 루프 방지 (docs/DESIGN.md 11장):
 #   stop_hook_active 가 true 면 즉시 통과시킨다. 이미 한 번 막았다는 뜻이다.
 #   그래도 연속 8회 차단하면 Claude Code 가 이 훅을 무시한다.
 #
 # 변경이 없으면 돌지 않는다. 질문만 한 턴에서 tsc 를 돌리는 건 낭비고,
-# 느린 훅은 결국 꺼진다(7장).
+# 느린 훅은 결국 꺼진다.
 #
-# set -e 를 쓰지 않는다 (7장). macOS 기본 bash 3.2 기준.
+# set -e 를 쓰지 않는다 (docs/DESIGN.md 11장). macOS 기본 bash 3.2 기준.
 set -uo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)

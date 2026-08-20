@@ -5,7 +5,7 @@
 > **엮은 조각은 `dependencies` 로 요구한다 — 없으면 동작하지 않는다.**
 >
 > 저자: tinyhex · 작성 2026-08-19 · 기준 Claude Code v2.1.220
-> v1(제약 시스템)은 [`DESIGN-v1.md`](./DESIGN-v1.md), 그 과정은 [`RETROSPECTIVE.md`](./RETROSPECTIVE.md).
+> v1(제약 시스템)이 무너진 과정과 실측 기록은 [`RETROSPECTIVE.md`](./RETROSPECTIVE.md).
 
 ---
 
@@ -865,7 +865,7 @@ duplication  deadcode  a11y  naming  other          ← verify 가 재는 것들
 
 ## 11. 훅 작성 시 반드시 지킬 것
 
-전부 이 프로젝트에서 실제로 겪은 것이다. 상세는 [`DESIGN-v1.md` 7장](./DESIGN-v1.md).
+전부 이 프로젝트에서 실제로 겪은 것이다. 배경은 [`RETROSPECTIVE.md`](./RETROSPECTIVE.md).
 
 - **exit 2 만 차단한다.** exit 1 은 non-blocking. 그래서 `set -e` 금지, `set -uo pipefail` 만
 - **`PostToolUse` 의 exit 2 는 차단이 아니다.** 모델에게 stderr 를 보여주는 것
@@ -1250,5 +1250,11 @@ stderr 로 **`fe-harness:lap` 을 가리킨다.** 절차가 셸에 없으니 `la
 있나 같은 **사실**만 내고, `scripts.test` 를 `Stop` 게이트에 넣어도 되는지 같은
 **판단**은 커맨드를 읽는 모델과 사람이 한다. 이름만 보고 e2e 를 게이트에 넣으면
 매 턴이 몇 분씩 늘어나고, 그러면 플러그인이 꺼진다.
+
+**v1 잔재 정리.**
+`fh_flag_props` 는 v1 에서 검사를 폐기하고도 함수 · fixtures · 테스트가 남아
+있었다 — 어떤 훅도 부르지 않는 죽은 코드였다. `DESIGN-v1.md` 는 실측 기록이
+`RETROSPECTIVE.md` 에 전부 있어 지웠고, 훅 주석의 장 번호는 v1 문서 기준이라
+현행 장으로 옮겼다. **문서를 다시 쓰면 그 문서를 가리키던 주석도 이사해야 한다.**
 
 _(이후 계속)_

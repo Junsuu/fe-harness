@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# P1-7 규칙 재주입. SessionStart — stdout 이 그대로 컨텍스트에 들어간다.
+# guide 주입. SessionStart — stdout 이 그대로 컨텍스트에 들어간다.
 #
 # stdout 이 컨텍스트로 가는 이벤트는 SessionStart · UserPromptSubmit ·
-# UserPromptExpansion 셋뿐이다(7장). 그래서 이게 **유일한 예방 채널**이다.
+# UserPromptExpansion 셋뿐이다 (docs/DESIGN.md 5장). 그래서 이게 **유일한 예방 채널**이다.
 #
 # 두 가지 일을 동시에 한다:
 #   1) 컴팩션으로 규칙이 희석된 뒤 다시 넣기 (원래 목적)
 #   2) 쓰기 전에 임계값을 알려주기 (예방)
 #
-# 훅은 반려밖에 못 한다 — 그건 교정이다. 모델이 처음부터 제대로 쓰게 하려면
+# 훅의 지적은 쓴 뒤에 온다 — 그건 교정이다. 모델이 처음부터 제대로 쓰게 하려면
 # 쓰기 전에 컨텍스트에 있어야 하고, 그건 스킬로는 안 된다(스킬은 호출해야
-# 로드된다). 4장 「예방은 스킬의 일이 아니다」 참조.
+# 로드된다). docs/DESIGN.md 5장 「스킬로는 예방이 안 된다」 참조.
 #
 # **짧게 유지한다.** 여기 넣는 만큼 매 세션 컨텍스트를 먹는다.
 # 절차가 필요하면 스킬로 가야지 이 자리를 늘리면 안 된다.
 #
-# set -e 를 쓰지 않는다 (7장). macOS 기본 bash 3.2 기준.
+# set -e 를 쓰지 않는다 (docs/DESIGN.md 11장). macOS 기본 bash 3.2 기준.
 set -uo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)

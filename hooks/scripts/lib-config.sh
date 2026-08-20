@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fe-harness 설정 해석. docs/DESIGN.md 6장 「설정 파일 — 3단 폴백」.
+# fe-harness 설정 해석 — 3단 폴백.
 #
 #   1) 프로젝트 루트 .fe-harness.json 이 있으면 → 무조건 신뢰
 #   2) 없으면 추론 (설정파일 존재 / node_modules 바이너리)
@@ -8,7 +8,7 @@
 # 3번이 핵심이다. 하네스가 확신 없이 뭔가 실행해서 개발을 막는 것보다
 # 아무것도 안 하는 게 낫다.
 #
-# set -e 를 쓰지 않는다 (7장). 실행 환경은 macOS 기본 bash 3.2.
+# set -e 를 쓰지 않는다 (docs/DESIGN.md 11장). 실행 환경은 macOS 기본 bash 3.2.
 
 # 프로젝트 루트. 훅 payload 의 .cwd 를 인자로 받는다.
 fh_root() {

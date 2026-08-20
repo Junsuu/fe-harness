@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# P1-6 린트 피드백. PostToolUse(Write|Edit) — 고칠 수 있는 건 고치고 남은 것만 알린다.
+# 린트 피드백. PostToolUse(Write|Edit) — 고칠 수 있는 건 고치고 남은 것만 알린다.
 #
-# 왜 이게 퀄리티 향상인가 (docs/DESIGN.md 4장):
+# 왜 이게 퀄리티 향상인가:
 #   분량·컴포넌트 게이트는 "구조 열화 예방"이지 "좋은 코드 쓰기"가 아니다.
 #   반면 lint 에러는 취향이 아니라 **틀린 코드**다. 그리고 Claude 는 자기가
 #   방금 만든 걸 그 자리에서 보지 못한다 — 명시적으로 린터를 돌리거나
@@ -11,9 +11,9 @@
 # 중복 검사가 목적이 아니다. 린터를 대체하지도 않는다 — 호출할 뿐이다.
 # ESLint 설정이 없는 프로젝트에서는 아무것도 하지 않는다.
 #
-# PostToolUse 의 exit 2 는 차단이 아니라 stderr 를 Claude 에게 보여주기다(7장).
+# PostToolUse 의 exit 2 는 차단이 아니라 stderr 를 Claude 에게 보여주기다.
 #
-# set -e 를 쓰지 않는다 (7장). macOS 기본 bash 3.2 기준.
+# set -e 를 쓰지 않는다. macOS 기본 bash 3.2 기준.
 set -uo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)

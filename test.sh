@@ -23,17 +23,7 @@ expect_components() {
   fi
 }
 
-expect_flag_props() {
-  local file=$1 want=$2 got
-  got=$(fh_flag_props 2 < "$ROOT/fixtures/$file")
-  if [ "$got" = "$want" ]; then
-    pass=$((pass + 1))
-    printf 'ok    %-32s flag-props=%s\n' "$file" "${got:-(없음)}"
-  else
-    fail=$((fail + 1))
-    printf 'FAIL  %-32s flag-props=%s (기대 %s)\n' "$file" "${got:-(없음)}" "${want:-(없음)}"
-  fi
-}
+
 
 # --- 컴포넌트 개수 -------------------------------------------------------
 expect_components negative-non-components.tsx 0
@@ -43,11 +33,7 @@ expect_components positive-hoc.tsx 2
 expect_components mixed-single-component.tsx 1
 expect_components inline-two-components.tsx 2
 
-# --- flag props ----------------------------------------------------------
-expect_flag_props flag-props-many.tsx 'ToggleCardProps (boolean prop 3개)'
-expect_flag_props flag-props-none.tsx ''
-
-# --- 포맷 훅 (P0-1) ------------------------------------------------------
+# --- 포맷 훅 --------------------------------------------------------------
 # 훅을 직접 실행해서 확인한다. 경로 오타나 조용한 no-op 이 제일 잡기 어렵다.
 
 TMP=$(mktemp -d)
@@ -125,7 +111,7 @@ run_guard() {
   guard_exit=$?
 }
 
-# want: 0 = 통과, 2 = 반려
+# want: 0 = 무동작, 2 = 경고(stderr 전달)
 expect_guard() {
   local label=$1 want=$2 tool=$3 target=$4 nline=$5 config=${6:-}
   run_guard "$tool" "$target" "$(nlines "$nline")" "$config"
@@ -204,7 +190,7 @@ fi
 # --- 컴포넌트 개수 — 신호 ------------------------------------------------
 # 차단하지 않는다. PostToolUse(Write|Edit) 경고만. 판단은 review 역할이 한다.
 
-# 개수 세는 함수와 이름 뽑는 함수가 어긋나면 반려 메시지가 거짓말을 한다.
+# 개수 세는 함수와 이름 뽑는 함수가 어긋나면 신호 메시지가 거짓말을 한다.
 for f in "$ROOT"/fixtures/*.tsx; do
   c=$(fh_count_components < "$f")
   l=$(fh_list_components < "$f" | grep -c . || true)
@@ -256,7 +242,7 @@ expect_warn 'disable.warn-구키워드무시' 2 inline-two-components.tsx '{"dis
 expect_warn 'Write-2개-경고'       2 inline-two-components.tsx '' Write
 expect_warn 'Write-1개-무동작'     0 mixed-single-component.tsx '' Write
 
-# --- 린트 피드백 (P1-6) --------------------------------------------------
+# --- 린트 피드백 ----------------------------------------------------------
 # 설정이 없으면 아무것도 안 한다. 있으면 남은 문제만 stderr 로 낸다.
 
 LINT_ERR=$TMP/lint.stderr
@@ -321,7 +307,7 @@ LINT
 chmod +x "$TMP/tsconfig-lint.sh"
 expect_lint 'tsconfig불일치-무동작' 0 '{"verify":{"lint":"./tsconfig-lint.sh"}}'
 
-# --- 품질 게이트 (P1-4) --------------------------------------------------
+# --- 품질 게이트 ----------------------------------------------------------
 # 제일 중요한 건 무한 루프 방지다.
 
 GATE_ERR=$TMP/gate.stderr
@@ -372,7 +358,7 @@ else
   fail=$((fail + 1)); printf 'FAIL  %-32s\n' 'stderr-검사출력'
 fi
 
-# --- 규칙 주입 (P1-7) ----------------------------------------------------
+# --- guide 주입 -----------------------------------------------------------
 # stdout 이 그대로 컨텍스트로 간다. 짧아야 하고, 실제 임계값을 말해야 한다.
 
 run_inject() {
