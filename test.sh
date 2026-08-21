@@ -606,5 +606,27 @@ else
   fail=$((fail + 1)); printf 'FAIL  %-32s\n' '루프-exit2'
 fi
 
+# --- guide 포인터 ---------------------------------------------------------
+# 내용을 발명하지 않는다 — roles.guide 의 스킬 이름을 나열할 뿐이다.
+
+expect_guide() {
+  local label=$1 want=$2 cfg=$3 out
+  if [ -n "$cfg" ]; then printf '%s\n' "$cfg" > "$TMP/.fe-harness.json"
+  else rm -f "$TMP/.fe-harness.json"; fi
+  out=$(printf '{"hook_event_name":"SessionStart","cwd":"%s","source":"startup"}' "$TMP" \
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/reinject.sh" 2>/dev/null | tail -1)
+  if { [ -n "$want" ] && printf '%s' "$out" | grep -q -- "$want"; } ||
+     { [ -z "$want" ] && ! printf '%s' "$out" | grep -q '구조를 정하기 전에'; }; then
+    pass=$((pass + 1)); printf 'ok    %-32s\n' "$label"
+  else
+    fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' "$label" "$out"
+  fi
+}
+
+expect_guide '가이드-기본값'        'frontend-fundamentals:readability' ''
+expect_guide '가이드-지정배열'      'a:x · b:y' '{"roles":{"guide":["a:x","b:y"]}}'
+expect_guide '가이드-문자열도허용'  'c:z' '{"roles":{"guide":"c:z"}}'
+expect_guide '가이드-빈배열-끔'     '' '{"roles":{"guide":[]}}'
+
 printf '\npass=%d fail=%d\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

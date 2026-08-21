@@ -58,4 +58,22 @@ printf '한 번의 Edit %s줄, 파일당 컴포넌트 %s개를 넘으면 신호�
 printf '막힌 뒤에 쪼개지 말고 처음부터 나눠서 쓰세요. '
 printf '커밋 전에 /lap 을 부르면 리뷰 · 개선 · 기록까지 한 바퀴 돕니다.\n'
 
+# guide — 리뷰가 보는 기준을 쓰기 전에 가리킨다. 내용을 발명하지 않는다:
+# roles.guide 에 적힌 스킬 이름을 나열할 뿐이다. 리뷰 기준에서 파생되므로
+# 짐작이 아니고, 어차피 리뷰에서 지적받을 기준이면 쓰기 전에 아는 게 싸다.
+# 문법상 배열("여럿")과 문자열("하나") 둘 다 유효하다.
+guide_skills=$(jq -r '.roles.guide
+    | if type == "array" then .[] elif type == "string" then select(length > 0) else empty end' \
+  "$root/.fe-harness.json" 2>/dev/null | paste -sd , - | sed 's/,/ · /g')
+if [ -z "$guide_skills" ]; then
+  # 키가 없으면 기본 조합과 같은 값. 빈 배열([])을 명시했으면 위에서 빈 문자열이
+  # 나와 이 폴백을 타지 않도록, 키 존재 여부를 따로 본다.
+  if ! jq -e '.roles.guide' "$root/.fe-harness.json" >/dev/null 2>&1; then
+    guide_skills='frontend-fundamentals:readability · frontend-fundamentals:cohesion'
+  fi
+fi
+[ -n "$guide_skills" ] &&
+  printf 'FE 코드의 구조를 정하기 전에 %s 스킬을 먼저 확인하세요. 리뷰가 같은 기준으로 봅니다.\n' \
+    "$guide_skills"
+
 exit 0
