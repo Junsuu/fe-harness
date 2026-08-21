@@ -46,7 +46,7 @@ if [ -n "$custom" ]; then
   exit 0
 fi
 
-# v2 에는 차단하는 훅이 없다. 전부 신호다.
+# 차단하는 훅이 없다. 전부 신호다.
 # 안 막는 것을 막는다고 말하면 그게 곧 거짓말이고, 모델은 그 말을 믿는다.
 new_lines=$(fh_cfg_num "$root" '.signals.maxNewFileLines' 250)
 edit_lines=$(fh_cfg_num "$root" '.signals.maxEditLines' 80)

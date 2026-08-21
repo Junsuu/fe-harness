@@ -95,9 +95,9 @@ rm -f "$TMP.outside.tsx"
 
 nlines() { awk -v n="$1" 'BEGIN { for (i = 1; i <= n; i++) print "const v" i " = " i ";" }'; }
 
-GUARD_ERR=$TMP/guard.stderr
+SIZE_ERR=$TMP/guard.stderr
 
-run_guard() {
+run_size() {
   local tool=$1 target=$2 body=$3 config=$4 key
   if [ -n "$config" ]; then
     printf '%s\n' "$config" > "$TMP/.fe-harness.json"
@@ -107,63 +107,63 @@ run_guard() {
   [ "$tool" = Write ] && key=content || key=new_string
   printf '{"tool_name":"%s","cwd":"%s","tool_input":{"file_path":"%s","%s":%s}}' \
     "$tool" "$TMP" "$target" "$key" "$(printf '%s' "$body" | jq -Rs .)" \
-    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/warn-size.sh" 2> "$GUARD_ERR"
-  guard_exit=$?
+    | env -u CLAUDE_PROJECT_DIR "$ROOT/hooks/scripts/warn-size.sh" 2> "$SIZE_ERR"
+  size_exit=$?
 }
 
 # want: 0 = 무동작, 2 = 경고(stderr 전달)
-expect_guard() {
+expect_size() {
   local label=$1 want=$2 tool=$3 target=$4 nline=$5 config=${6:-}
-  run_guard "$tool" "$target" "$(nlines "$nline")" "$config"
-  if [ "$guard_exit" -eq "$want" ]; then
+  run_size "$tool" "$target" "$(nlines "$nline")" "$config"
+  if [ "$size_exit" -eq "$want" ]; then
     pass=$((pass + 1))
-    printf 'ok    %-32s exit=%s\n' "$label" "$guard_exit"
+    printf 'ok    %-32s exit=%s\n' "$label" "$size_exit"
   else
     fail=$((fail + 1))
-    printf 'FAIL  %-32s exit=%s (기대 %s)\n' "$label" "$guard_exit" "$want"
+    printf 'FAIL  %-32s exit=%s (기대 %s)\n' "$label" "$size_exit" "$want"
   fi
 }
 
 # 비대칭 임계값 — 새 파일은 넉넉하게, 기존 수정은 빡빡하게
-expect_guard 'Write-249줄-무동작'      0 Write "$TMP/a.tsx" 249
-expect_guard 'Write-251줄-경고'      2 Write "$TMP/a.tsx" 251
-expect_guard 'Edit-79줄-무동작'        0 Edit  "$TMP/a.tsx" 79
-expect_guard 'Edit-81줄-경고'        2 Edit  "$TMP/a.tsx" 81
+expect_size 'Write-249줄-무동작'      0 Write "$TMP/a.tsx" 249
+expect_size 'Write-251줄-경고'      2 Write "$TMP/a.tsx" 251
+expect_size 'Edit-79줄-무동작'        0 Edit  "$TMP/a.tsx" 79
+expect_size 'Edit-81줄-경고'        2 Edit  "$TMP/a.tsx" 81
 
 # 설정으로 조정된다
-expect_guard '임계값설정-경고'        2 Write "$TMP/a.tsx" 60  '{"signals":{"maxNewFileLines":50}}'
-expect_guard '임계값설정-무동작'        0 Write "$TMP/a.tsx" 40  '{"signals":{"maxNewFileLines":50}}'
+expect_size '임계값설정-경고'        2 Write "$TMP/a.tsx" 60  '{"signals":{"maxNewFileLines":50}}'
+expect_size '임계값설정-무동작'        0 Write "$TMP/a.tsx" 40  '{"signals":{"maxNewFileLines":50}}'
 
 # 끌 수 있어야 한다
-expect_guard 'disable.signals-무동작'     0 Write "$TMP/a.tsx" 999 '{"disable":{"signals":true}}'
+expect_size 'disable.signals-무동작'     0 Write "$TMP/a.tsx" 999 '{"disable":{"signals":true}}'
 
 # 코드가 아닌 파일은 분량으로 막지 않는다 — 긴 문서는 정상이다
-expect_guard '마크다운-무동작'          0 Write "$TMP/DESIGN.md" 999
-expect_guard 'JSON-무동작'             0 Write "$TMP/data.json" 999
+expect_size '마크다운-무동작'          0 Write "$TMP/DESIGN.md" 999
+expect_size 'JSON-무동작'             0 Write "$TMP/data.json" 999
 
 # exclude 패턴
-expect_guard 'exclude-stories-무동작'   0 Write "$TMP/Button.stories.tsx" 999 \
+expect_size 'exclude-stories-무동작'   0 Write "$TMP/Button.stories.tsx" 999 \
   '{"exclude":["**/*.stories.tsx"]}'
-expect_guard 'exclude-깊은경로-무동작'  0 Write "$TMP/src/gen/api.ts" 999 \
+expect_size 'exclude-깊은경로-무동작'  0 Write "$TMP/src/gen/api.ts" 999 \
   '{"exclude":["src/gen/**"]}'
-expect_guard 'exclude-비대상-경고'    2 Write "$TMP/src/app/api.ts" 999 \
+expect_size 'exclude-비대상-경고'    2 Write "$TMP/src/app/api.ts" 999 \
   '{"exclude":["src/gen/**"]}'
 
 # stderr 는 Claude 가 읽는다. "대신 무엇을 하라"가 반드시 들어가야 한다.
-run_guard Write "$TMP/a.tsx" "$(nlines 300)" ''
-if grep -q '별도 파일로 Write' "$GUARD_ERR" && grep -q '250줄' "$GUARD_ERR" &&
-   grep -q '정당하게 긴 파일' "$GUARD_ERR" && ! grep -q 'disable' "$GUARD_ERR"; then
+run_size Write "$TMP/a.tsx" "$(nlines 300)" ''
+if grep -q '별도 파일로 Write' "$SIZE_ERR" && grep -q '250줄' "$SIZE_ERR" &&
+   grep -q '정당하게 긴 파일' "$SIZE_ERR" && ! grep -q 'disable' "$SIZE_ERR"; then
   pass=$((pass + 1))
   printf 'ok    %-32s 대안·예외안내 포함, 끄는법 미포함\n' 'stderr-문구'
 else
   fail=$((fail + 1))
   printf 'FAIL  %-32s\n' 'stderr-문구'
-  sed 's/^/      /' "$GUARD_ERR"
+  sed 's/^/      /' "$SIZE_ERR"
 fi
 
 # guidance 는 프로젝트 설정에서만 온다 — 플러그인은 남의 도구를 모른다
-run_guard Write "$TMP/a.tsx" "$(nlines 300)" '{"guidance":"우리 저장소 규칙 먼저 확인"}'
-if grep -q '우리 저장소 규칙 먼저 확인' "$GUARD_ERR"; then
+run_size Write "$TMP/a.tsx" "$(nlines 300)" '{"guidance":"우리 저장소 규칙 먼저 확인"}'
+if grep -q '우리 저장소 규칙 먼저 확인' "$SIZE_ERR"; then
   pass=$((pass + 1))
   printf 'ok    %-32s stderr 에 덧붙음\n' 'guidance'
 else
@@ -174,10 +174,10 @@ fi
 # 관찰 모드는 기본 꺼짐
 OBS=$TMP/observe
 rm -rf "$OBS"
-FE_HARNESS_OBSERVE_DIR=$OBS run_guard Write "$TMP/a.tsx" "$(nlines 10)" ''
+FE_HARNESS_OBSERVE_DIR=$OBS run_size Write "$TMP/a.tsx" "$(nlines 10)" ''
 off=$(ls "$OBS"/payload-*.json 2>/dev/null | wc -l | tr -d ' ')
 rm -rf "$OBS"
-FE_HARNESS_OBSERVE_DIR=$OBS run_guard Write "$TMP/a.tsx" "$(nlines 10)" '{"observe":true}'
+FE_HARNESS_OBSERVE_DIR=$OBS run_size Write "$TMP/a.tsx" "$(nlines 10)" '{"observe":true}'
 on=$(ls "$OBS"/payload-*.json 2>/dev/null | wc -l | tr -d ' ')
 if [ "$off" = "0" ] && [ "$on" = "1" ]; then
   pass=$((pass + 1))
@@ -379,7 +379,7 @@ else
   fail=$((fail + 1)); printf 'FAIL  %-32s: %s\n' '주입-기본문구' "$out"
 fi
 
-# v2 에는 차단하는 훅이 없다. 막는다고 말하면 그게 거짓말이고 모델은 믿는다.
+# 차단하는 훅이 없다. 막는다고 말하면 그게 거짓말이고 모델은 믿는다.
 if printf '%s' "$out" | grep -qE '반려|차단은 하지' && printf '%s' "$out" | grep -q '신호'; then
   pass=$((pass + 1)); printf 'ok    %-32s 차단 아님을 명시\n' '주입-차단주장없음'
 else

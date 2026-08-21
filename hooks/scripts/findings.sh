@@ -54,7 +54,7 @@ _ensure_file() {
   [ -f "$FILE" ] && return 0
   {
     printf '# findings — 루프가 도는 증거\n\n'
-    printf '`/lap` 이 한 줄씩 덧붙인다. 손으로 고쳐도 되지만 탭 구분 6칸을 지킬 것.\n\n'
+    printf '`/lap` 이 한 줄씩 덧붙인다. 손으로 고쳐도 되지만 탭 6개 · 7칸 형식을 지킬 것.\n\n'
     printf '```\n날짜\t커밋\t출처\t카테고리\t요약\t파일\t처리\n```\n\n'
   } > "$FILE" 2>/dev/null
 }
