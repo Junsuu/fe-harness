@@ -256,9 +256,16 @@ echo '{"tool_name":"Write","cwd":"'$PWD'","tool_input":{"file_path":"/tmp/a.tsx"
 
 - **guide 주입 내용** — 무엇을 넣을지 지금 정하면 짐작이 된다. v1 이 짐작으로
   임계값을 정했다가 절반이 반대로 작동했다
-- **`a11y-semantics` 플러그인** — 마켓에 조각이 없어 만들기로 했지만,
-  시맨틱 지적이 실제로 반복돼야 착수한다. 별도 저장소. 그 사이 마켓에 조각이
-  생기면 만들지 않는다
+- **`a11y-semantics` 플러그인 — 조각이 생겨 만들지 않는 쪽으로 기울었다**
+  (2026-08-21 검증). [`masuP9/a11y-specialist-skills`](https://github.com/masuP9/a11y-specialist-skills)
+  의 `reviewing-a11y` 가 우리 예시 전부(`div onClick`→`button` · 제목 위계 ·
+  랜드마크 · 불필요한 ARIA)를 커버한다. 남는 갭은 보조기기와 무관한 문서 의미
+  구조(`article`/`section`/`figure`) 하나뿐이고, 그게 실제 문제인지는 findings
+  가 증명해야 한다 — 증거 없이 만들면 짐작이다.
+  실사용 기간에 `roles.review` 배열에 끼워 평가한다. **설정으로만 쓰고
+  `dependencies` 에 넣지 않는다** — 1인 유지보수(마지막 푸시 06-13)라
+  중단 리스크가 있는데, 설정이면 죽어도 한 줄 교체로 끝난다. 문서 의미 구조
+  지적이 반복되면 그때 그 좁은 범위만 별도 저장소로 만든다
 - **다관점 리뷰** — 외부 루프의 `roles.review` 배열로 가능하게 해뒀다.
   읽기만 하는 도구, 겹치지 않는 축(`silent-failure-hunter` ·
   `type-design-analyzer`)만. 두 번째 렌즈가 새 지적을 내는지 findings 로 판정
