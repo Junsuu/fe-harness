@@ -108,7 +108,9 @@ CI 와도 일치하고, 프로젝트가 룰을 조정할 수 있다. 사용자�
 ### 2 · review — 읽어야 아는 것
 
 **`roles.review` 를 쓴다. 이건 필수 역할이라 폴백이 없다.**
-지정이 없으면 `frontend-fundamentals:reviewer` 를 쓴다.
+지정이 없으면 기본값 — `frontend-fundamentals:reviewer` 와
+`a11y-specialist-skills:reviewing-a11y` 를 병렬로 쓴다. 축이 다르다:
+앞은 코드 품질(응집도·가독성), 뒤는 접근성·시맨틱 마크업.
 
 **diff 범위를 반드시 명시해서 넘긴다** — 리뷰 도구들의 기본값은 `main...HEAD` 라
 그대로 두면 브랜치 전체를 본다. 여기서는 **`git diff $base`** 를 보라고 말한다.

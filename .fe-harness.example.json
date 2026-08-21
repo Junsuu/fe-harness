@@ -17,8 +17,8 @@
     "__guide": "작성 전 컨텍스트에 넣을 지침. 스킬 본문이 아니라 '이걸 먼저 보라'는 포인터다.",
     "guide": ["frontend-fundamentals:readability", "frontend-fundamentals:cohesion"],
 
-    "__review": "판단이 필요한 리뷰. 필수 역할이다. a11y-semantics 가 생기면 배열에 추가한다.",
-    "review": "frontend-fundamentals:reviewer",
+    "__review": "판단이 필요한 리뷰. 필수 역할이다. 둘은 축이 다르다 — 앞은 코드 품질, 뒤는 접근성·시맨틱.",
+    "review": ["frontend-fundamentals:reviewer", "a11y-specialist-skills:reviewing-a11y"],
 
     "__refine": [
       "리뷰 지적을 수정 코드로 옮긴다. 비우면 모델이 직접 한다 — 단계는 그대로 돈다.",

@@ -237,8 +237,10 @@ echo '{"tool_name":"Write","cwd":"'$PWD'","tool_input":{"file_path":"/tmp/a.tsx"
 
 ## 결정 기록
 
-1. **review 는 `frontend-fundamentals:reviewer` 단독.** 다관점 병렬은 오탐
-   필터를 우리가 만들어야 한다. 부족하면 감싸지 말고 역할에 다른 도구를 끼운다
+1. **review 기본값은 2종 병렬** — `frontend-fundamentals:reviewer`(코드 품질) +
+   `a11y-specialist-skills:reviewing-a11y`(접근성·시맨틱). 처음엔 단독이었으나
+   축이 겹치지 않는 조각이 마켓에 생겨(2026-08-21 검증) 끼웠다. 같은 축을 두 벌
+   얹는 것만 피한다 — 그건 같은 지적을 두 번 낸다
 2. **refine 은 제안까지.** 근거는 위 「왜 refine 은 제안까지인가」
 3. **트리거는 commit + push 이중 루프.** 비용이 다른 검사를 한 루프에 몰면
    둘 다 못 쓴다
@@ -247,7 +249,8 @@ echo '{"tool_name":"Write","cwd":"'$PWD'","tool_input":{"file_path":"/tmp/a.tsx"
 5. **중복 · 죽은 코드는 verify.** 셀 수 있고 동시에 틀렸다고 단정할 수 있다
 6. **a11y 는 세 계층.** 정적은 저장소 ESLint(`jsx-a11y` 추가 제안까지만),
    런타임은 외부 루프에서 저장소가 이미 가진 렌더 수단(E2E > 컴포넌트 테스트 >
-   Storybook > 라우트 목록)에만 얹고, 판단(시맨틱 선택)은 보류
+   Storybook > 라우트 목록)에만 얹고, 판단(시맨틱 선택)은 review 의
+   `a11y-specialist-skills` 가 맡는다
 7. **차단하는 훅을 두지 않는다.** 분량 게이트는 실측 p95 에 앉아 잘 돌았지만,
    그것을 정당화하던 명제("새 파일은 싸게")가 폐기됐다. 근거가 철회된 장치를
    작동한다는 이유로 남기지 않는다
@@ -256,16 +259,14 @@ echo '{"tool_name":"Write","cwd":"'$PWD'","tool_input":{"file_path":"/tmp/a.tsx"
 
 - **guide 주입 내용** — 무엇을 넣을지 지금 정하면 짐작이 된다. v1 이 짐작으로
   임계값을 정했다가 절반이 반대로 작동했다
-- **`a11y-semantics` 플러그인 — 조각이 생겨 만들지 않는 쪽으로 기울었다**
-  (2026-08-21 검증). [`masuP9/a11y-specialist-skills`](https://github.com/masuP9/a11y-specialist-skills)
+- **`a11y-semantics` 플러그인 — 만들지 않는다** (2026-08-21 확정).
+  [`masuP9/a11y-specialist-skills`](https://github.com/masuP9/a11y-specialist-skills)
   의 `reviewing-a11y` 가 우리 예시 전부(`div onClick`→`button` · 제목 위계 ·
-  랜드마크 · 불필요한 ARIA)를 커버한다. 남는 갭은 보조기기와 무관한 문서 의미
-  구조(`article`/`section`/`figure`) 하나뿐이고, 그게 실제 문제인지는 findings
-  가 증명해야 한다 — 증거 없이 만들면 짐작이다.
-  실사용 기간에 `roles.review` 배열에 끼워 평가한다. **설정으로만 쓰고
-  `dependencies` 에 넣지 않는다** — 1인 유지보수(마지막 푸시 06-13)라
-  중단 리스크가 있는데, 설정이면 죽어도 한 줄 교체로 끝난다. 문서 의미 구조
-  지적이 반복되면 그때 그 좁은 범위만 별도 저장소로 만든다
+  랜드마크 · 불필요한 ARIA)를 커버해 **기본 조합에 끼우고 의존성으로 선언했다.**
+  1인 유지보수(마지막 푸시 06-13) 리스크는 인지하고 수용 — 스킬은 얼어 있는
+  지식이라 천천히 늙고, 최악엔 포크한다. 남는 갭(보조기기와 무관한 문서 의미
+  구조 — `article`/`section`/`figure`)이 findings 에 반복되면 그때 그 좁은
+  범위만 별도 저장소로 만든다
 - **다관점 리뷰** — 외부 루프의 `roles.review` 배열로 가능하게 해뒀다.
   읽기만 하는 도구, 겹치지 않는 축(`silent-failure-hunter` ·
   `type-design-analyzer`)만. 두 번째 렌즈가 새 지적을 내는지 findings 로 판정

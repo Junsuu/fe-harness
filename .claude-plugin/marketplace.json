@@ -5,7 +5,11 @@
     "name": "tinyhex",
     "email": "jsp2151@gmail.com"
   },
-  "allowCrossMarketplaceDependenciesOn": ["toss", "claude-plugins-official"],
+  "allowCrossMarketplaceDependenciesOn": [
+    "toss",
+    "claude-plugins-official",
+    "a11y-specialist-skills"
+  ],
   "plugins": [
     {
       "name": "fe-harness",

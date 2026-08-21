@@ -70,6 +70,7 @@
 ```bash
 claude plugin marketplace add toss/frontend-fundamentals
 claude plugin marketplace add anthropics/claude-plugins-official
+claude plugin marketplace add masuP9/a11y-specialist-skills
 
 claude plugin marketplace add Junsuu/fe-harness
 claude plugin install fe-harness@fe-harness
@@ -83,7 +84,7 @@ claude plugin list      # Status 확인
 /fe-harness:setup       # 저장소를 훑어 .fe-harness.json 을 만든다
 ```
 
-- 마켓만 등록돼 있으면 의존 플러그인(`frontend-fundamentals` · `hookify` · `commit-commands`)은 **자동 설치**
+- 마켓만 등록돼 있으면 의존 플러그인(`frontend-fundamentals` · `hookify` · `commit-commands` · `a11y-specialist-skills`)은 **자동 설치**
 - **기본 설정에 적힌 도구는 전부 필수.** 하나라도 없으면 플러그인이 비활성화된다
 - **`validate --strict` 는 로드 성공을 보장하지 않는다.** `claude plugin list` 의 `Status` 를 봐야 한다
 
@@ -117,7 +118,7 @@ claude plugin list      # Status 확인
 {
   "roles": {
     "guide":  ["frontend-fundamentals:readability", "frontend-fundamentals:cohesion"],
-    "review": "frontend-fundamentals:reviewer",
+    "review": ["frontend-fundamentals:reviewer", "a11y-specialist-skills:reviewing-a11y"],
     "refine": "",
     "record": "commit-commands:commit",
     "learn":  "hookify"
@@ -135,7 +136,7 @@ claude plugin list      # Status 확인
 | 역할 | 하는 일 | 기본값 |
 | --- | --- | --- |
 | `guide` | 쓰기 **전에** 기준을 컨텍스트에 넣는다 | `frontend-fundamentals` 스킬 |
-| `review` | 읽어야 아는 것을 본다 | `frontend-fundamentals:reviewer` |
+| `review` | 읽어야 아는 것을 본다 | `frontend-fundamentals:reviewer` + `a11y-specialist-skills:reviewing-a11y` (병렬) |
 | `refine` | 지적을 수정 코드로 옮긴다 | 없음 (모델이 직접) |
 | `record` | 커밋·PR 문구를 요점만 쓴다 | `commit-commands` |
 | `learn` | 반복된 지적을 규칙으로 올린다 | `hookify` |
@@ -206,8 +207,8 @@ SVG 처럼 정당하게 긴 파일이 실재하기 때문이다. 그 개수가 �
 - **실사용 기록이 아직 적다.** 3회 승격 기준과 카테고리 목록이 맞는지,
   매 커밋 트리거가 성가신 수준인지는 아직 안 겪어봤다
 - **`guide` 역할이 미완이다.** 무엇을 주입할지는 `findings` 가 쌓인 뒤에 정한다
-- **a11y 는 정적 검사만 다룬다.** `eslint-plugin-jsx-a11y` 를 저장소 설정에
-  넣도록 제안할 뿐이다. 대비 · 포커스 순서 같은 런타임 검사와 시맨틱 판단은 없다
+- **a11y 런타임 검사는 없다.** 대비 · 포커스 순서는 렌더가 필요해 다루지 않는다.
+  정적 검사는 `eslint-plugin-jsx-a11y` 추가 제안, 판단 리뷰는 `a11y-specialist-skills` 가 맡는다
 - **같은 컴포넌트를 감싸기만 한 경우도 2개로 센다.**
   `const Base = forwardRef(...)` 뒤에 `export const X = memo(Base)`. 오탐이다
 - **클래스 컴포넌트 미지원.**
