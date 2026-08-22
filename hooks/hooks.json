@@ -52,8 +52,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/loop-trigger.sh commit",
-            "args": [],
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/loop-trigger.sh",
+            "args": ["commit"],
             "timeout": 120,
             "if": "Bash(git commit:*)",
             "asyncRewake": true,
@@ -63,8 +63,8 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/loop-trigger.sh push",
-            "args": [],
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/loop-trigger.sh",
+            "args": ["push"],
             "timeout": 600,
             "if": "Bash(git push:*)",
             "asyncRewake": true,
