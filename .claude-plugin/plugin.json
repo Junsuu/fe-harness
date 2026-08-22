@@ -1,7 +1,7 @@
 {
   "name": "fe-harness",
   "description": "FE 코드 품질 루프. 조각을 만들지 않고 역할로 루프를 정의한다. 역할에 어떤 도구를 끼울지는 .fe-harness.json 이 정한다.",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "author": {
     "name": "tinyhex",
     "email": "jsp2151@gmail.com"
